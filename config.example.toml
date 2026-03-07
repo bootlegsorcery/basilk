@@ -1,0 +1,62 @@
+[ui]
+show_help = true
+
+[[statuses]]
+name = "Todo"
+color = "red"
+sort_order = 1
+terminal = false
+
+[[statuses]]
+name = "InProgress"
+color = "yellow"
+sort_order = 2
+terminal = false
+
+[[statuses]]
+name = "Blocked"
+color = "magenta"
+sort_order = 3
+terminal = false
+
+[[statuses]]
+name = "Done"
+color = "green"
+sort_order = 4
+terminal = true
+
+[[statuses]]
+name = "Cancelled"
+color = "gray"
+sort_order = 5
+terminal = true
+
+[[statuses]]
+name = "Cancel"
+color = "blue"
+sort_order = 6
+terminal = true
+
+[[statuses]]
+name = "Cancel"
+color = "blue"
+sort_order = 7
+terminal = true
+
+[[statuses]]
+name = "Cancel"
+color = "blue"
+sort_order = 8
+terminal = true
+
+[[statuses]]
+name = "Cancel"
+color = "blue"
+sort_order = 9
+terminal = true
+
+[[statuses]]
+name = "Cancel"
+color = "blue"
+sort_order = 10
+terminal = true

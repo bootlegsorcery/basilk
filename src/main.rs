@@ -14,17 +14,16 @@ use tui_input::{backend::crossterm::EventHandler, Input};
 
 mod cli;
 mod config;
-mod json;
-mod migration;
 mod project;
+mod storage;
 mod task;
 mod ui;
 mod util;
 mod view;
 
 use config::{Config, ConfigToml};
-use json::Json;
 use project::Project;
+use storage::Storage;
 use task::{Task, TASK_PRIORITIES, TASK_STATUSES};
 use view::View;
 
@@ -42,8 +41,6 @@ pub enum ViewMode {
     ChangePriorityTask,
     AddTask,
     DeleteTask,
-
-    InfoMigration,
 }
 
 pub struct App {
@@ -77,11 +74,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // setup terminal
     let terminal = init_terminal()?;
 
-    // Check the version of the json file
-    let were_applied_migrations = Json::check()?;
+    // Check the storage
+    let _were_applied_migrations = Storage::check()?;
 
     // create app and run it
-    App::setup().run(terminal, were_applied_migrations)?;
+    App::setup().run(terminal)?;
 
     restore_terminal()?;
 
@@ -96,7 +93,7 @@ impl App {
             selected_status_task_index: ListState::default().with_selected(Some(0)),
             selected_priority_task_index: ListState::default().with_selected(Some(0)),
             view_mode: ViewMode::default(),
-            projects: Json::read(),
+            projects: Storage::read(),
             config: Config::read(),
         }
     }
@@ -104,7 +101,6 @@ impl App {
     fn run(
         &mut self,
         mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
-        were_applied_migrations: bool,
     ) -> Result<(), Box<dyn Error>> {
         let mut input = Input::default();
 
@@ -116,10 +112,6 @@ impl App {
 
         let mut priority_items: Vec<ListItem> = vec![];
         Task::load_priority_items(&mut priority_items);
-
-        if were_applied_migrations {
-            self.view_mode = ViewMode::InfoMigration
-        }
 
         loop {
             terminal.draw(|f| {
@@ -299,7 +291,6 @@ impl App {
 
                                 terminal = init_terminal().unwrap();
 
-                                let mut internal_projects = self.projects.clone();
                                 let project_idx = self.selected_project_index.selected().unwrap();
                                 let task_idx = self.selected_task_index.selected().unwrap();
                                 let relative_path = markdown_path
@@ -307,9 +298,9 @@ impl App {
                                     .and_then(|n| n.to_str())
                                     .map(|s| s.to_string());
                                 if let Some(rel_path) = relative_path {
-                                    internal_projects[project_idx].tasks[task_idx].markdown =
+                                    self.projects[project_idx].tasks[task_idx].markdown =
                                         Some(rel_path);
-                                    Json::write(internal_projects);
+                                    Storage::write_task(self, project_idx, task_idx);
                                 }
 
                                 Task::reload(self, &mut items);
@@ -414,12 +405,6 @@ impl App {
                             }
                             _ => {}
                         },
-
-                        ViewMode::InfoMigration => match key.code {
-                            _ => {
-                                App::change_view(self, ViewMode::ViewProjects);
-                            }
-                        },
                     }
                 }
             }
@@ -464,10 +449,6 @@ impl App {
         View::show_items(self, items, f, main_area);
 
         // Other views
-        if self.view_mode == ViewMode::InfoMigration {
-            View::show_migration_info_modal(f, area);
-        }
-
         if self.view_mode == ViewMode::AddTask || self.view_mode == ViewMode::AddProject {
             View::show_new_item_modal(f, area, input)
         }
@@ -536,8 +517,6 @@ impl App {
             ViewMode::ChangePriorityTask => return &mut self.selected_priority_task_index,
             ViewMode::AddTask => return &mut self.selected_task_index,
             ViewMode::DeleteTask => return &mut self.selected_task_index,
-
-            ViewMode::InfoMigration => return &mut self.selected_project_index,
         };
     }
 

@@ -128,7 +128,6 @@ impl View {
             ViewMode::ChangePriorityTask => "<Up/Down k/j> next/prev - <Enter> confirm - <Esc> cancel",
             ViewMode::AddTask => "<Enter> confirm - <Esc> cancel",
             ViewMode::DeleteTask => "<y> confirm - <n> cancel",
-            ViewMode::InfoMigration => ""
         };
 
         f.render_widget(

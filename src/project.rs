@@ -6,7 +6,7 @@ use ratatui::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    json::Json,
+    storage::Storage,
     task::{Task, TASK_STATUS_DONE},
     App,
 };
@@ -58,7 +58,7 @@ impl Project {
     }
 
     pub fn reload(app: &mut App, items: &mut Vec<ListItem>) {
-        app.projects = Json::read();
+        app.projects = Storage::read();
         Project::load_items(app, items)
     }
 
@@ -79,25 +79,31 @@ impl Project {
         let mut internal_projects = app.projects.clone();
         internal_projects.push(new_project);
 
-        Json::write(internal_projects);
+        Storage::create_project(value);
         Project::reload(app, items)
     }
 
     pub fn rename(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
         let mut internal_projects = app.projects.clone();
 
+        let old_name = internal_projects[app.selected_project_index.selected().unwrap()]
+            .title
+            .clone();
         internal_projects[app.selected_project_index.selected().unwrap()].title = value.to_string();
 
-        Json::write(internal_projects);
+        Storage::rename_project(&old_name, value);
         Project::reload(app, items)
     }
 
     pub fn delete(app: &mut App, items: &mut Vec<ListItem>) {
         let mut internal_projects = app.projects.clone();
 
+        let project_name = internal_projects[app.selected_project_index.selected().unwrap()]
+            .title
+            .clone();
         internal_projects.remove(app.selected_project_index.selected().unwrap());
 
-        Json::write(internal_projects);
+        Storage::delete_project(&project_name);
         Project::reload(app, items)
     }
 }

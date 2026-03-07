@@ -5,7 +5,7 @@ use ratatui::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{json::Json, util::Util, App};
+use crate::{storage::Storage, util::Util, App};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Task {
@@ -130,7 +130,7 @@ impl Task {
     }
 
     pub fn reload(app: &mut App, items: &mut Vec<ListItem>) {
-        app.projects = Json::read();
+        app.projects = Storage::read();
         Task::load_items(app, items)
     }
 
@@ -148,11 +148,14 @@ impl Task {
             return;
         }
 
+        let project = &app.projects[app.selected_project_index.selected().unwrap()];
+        let task_path = Storage::create_task(&project.title, value);
+
         let new_task = Task {
             title: value.to_string(),
             status: TASK_STATUS_UP_NEXT.to_string(),
             priority: 0,
-            markdown: None,
+            markdown: Some(task_path.file_name().unwrap().to_string_lossy().to_string()),
         };
 
         let mut internal_projects = app.projects.clone();
@@ -160,88 +163,92 @@ impl Task {
             .tasks
             .push(new_task);
 
-        Json::write(internal_projects);
         Task::reload(app, items)
     }
 
     pub fn rename(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+
         let mut internal_projects = app.projects.clone();
+        let old_title = internal_projects[project_idx].tasks[task_idx].title.clone();
+        internal_projects[project_idx].tasks[task_idx].title = value.to_string();
 
-        internal_projects[app.selected_project_index.selected().unwrap()].tasks
-            [app.selected_task_index.selected().unwrap()]
-        .title = value.to_string();
+        let project = &internal_projects[project_idx];
+        let task = &project.tasks[task_idx];
 
-        Json::write(internal_projects);
+        let old_filename = format!("{}.md", old_title.replace(' ', "_"));
+        let new_filename = format!("{}.md", value.replace(' ', "_"));
+
+        let data_dir = Storage::get_data_dir();
+        let old_path = data_dir.join(&project.title).join(&old_filename);
+        let new_path = data_dir.join(&project.title).join(&new_filename);
+
+        std::fs::rename(&old_path, &new_path).ok();
+
+        if let Some(task) = internal_projects[project_idx].tasks.get_mut(task_idx) {
+            task.markdown = Some(new_filename);
+        }
+
+        Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items)
     }
 
     pub fn change_status(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+
         let mut internal_projects = app.projects.clone();
         let status = value.to_string();
 
-        internal_projects[app.selected_project_index.selected().unwrap()].tasks
-            [app.selected_task_index.selected().unwrap()]
-        .status = status.clone();
+        internal_projects[project_idx].tasks[task_idx].status = status.clone();
 
         if status == TASK_STATUS_DONE {
-            internal_projects[app.selected_project_index.selected().unwrap()].tasks
-                [app.selected_task_index.selected().unwrap()]
-            .priority = 0
+            internal_projects[project_idx].tasks[task_idx].priority = 0
         }
 
-        Json::write(internal_projects);
+        Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items)
     }
 
     pub fn change_priority(app: &mut App, items: &mut Vec<ListItem>, value: u8) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+
         let mut internal_projects = app.projects.clone();
 
-        internal_projects[app.selected_project_index.selected().unwrap()].tasks
-            [app.selected_task_index.selected().unwrap()]
-        .priority = value;
+        internal_projects[project_idx].tasks[task_idx].priority = value;
 
-        Json::write(internal_projects);
+        Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items)
     }
 
     pub fn delete(app: &mut App, items: &mut Vec<ListItem>) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+
+        let project_name = app.projects[project_idx].title.clone();
+        let task_filename = app.projects[project_idx].tasks[task_idx]
+            .markdown
+            .clone()
+            .unwrap_or_else(|| {
+                format!(
+                    "{}.md",
+                    app.projects[project_idx].tasks[task_idx]
+                        .title
+                        .replace(' ', "_")
+                )
+            });
+
+        Storage::delete_task(&project_name, &task_filename);
+
         let mut internal_projects = app.projects.clone();
+        internal_projects[project_idx].tasks.remove(task_idx);
 
-        internal_projects[app.selected_project_index.selected().unwrap()]
-            .tasks
-            .remove(app.selected_task_index.selected().unwrap());
-
-        Json::write(internal_projects);
         Task::reload(app, items)
     }
 
     pub fn get_markdown_path(app: &mut App) -> std::path::PathBuf {
-        let task = Task::get_current(app);
-        let config_dir = Json::get_dir_path();
-        let mut path = config_dir.clone();
-        path.push("notes");
-
-        if let Some(ref markdown_path) = task.markdown {
-            path.push(markdown_path);
-        } else {
-            std::fs::create_dir_all(&path).ok();
-            let sanitized_title = task
-                .title
-                .chars()
-                .map(|c| {
-                    if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
-                        c
-                    } else {
-                        '_'
-                    }
-                })
-                .collect::<String>()
-                .trim()
-                .replace(' ', "_");
-            let filename = format!("{}.md", sanitized_title);
-            path.push(&filename);
-        }
-
-        path
+        Storage::get_markdown_path(app)
     }
 }

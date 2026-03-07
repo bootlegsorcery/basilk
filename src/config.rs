@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::json::Json;
+use crate::storage::Storage;
 
 #[derive(Deserialize, Serialize)]
 pub struct ConfigToml {
@@ -32,7 +32,7 @@ impl Config {
 
     fn get_config_path() -> PathBuf {
         let mut path = PathBuf::new();
-        path.push(Json::get_dir_path().as_path());
+        path.push(Storage::get_data_dir().as_path());
         path.push(format!("{CONFIG_FILE_NAME}.toml"));
 
         return path;
