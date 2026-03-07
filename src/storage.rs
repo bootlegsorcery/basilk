@@ -125,7 +125,7 @@ impl Storage {
             .and_then(|c| {
                 c.strip_prefix("---")
                     .and_then(|c| c.split_once("---"))
-                    .map(|(_, content)| content[3..].to_string())
+                    .map(|(_, content)| content.get(3..).unwrap_or("").to_string())
             })
             .unwrap_or_default();
 
