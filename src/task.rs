@@ -198,13 +198,12 @@ impl Task {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
 
-        let mut internal_projects = app.projects.clone();
         let status = value.to_string();
 
-        internal_projects[project_idx].tasks[task_idx].status = status.clone();
+        app.projects[project_idx].tasks[task_idx].status = status.clone();
 
         if status == TASK_STATUS_DONE {
-            internal_projects[project_idx].tasks[task_idx].priority = 0
+            app.projects[project_idx].tasks[task_idx].priority = 0
         }
 
         Storage::write_task(app, project_idx, task_idx);
@@ -215,9 +214,7 @@ impl Task {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
 
-        let mut internal_projects = app.projects.clone();
-
-        internal_projects[project_idx].tasks[task_idx].priority = value;
+        app.projects[project_idx].tasks[task_idx].priority = value;
 
         Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items)
