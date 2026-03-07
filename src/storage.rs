@@ -78,14 +78,13 @@ impl Storage {
         let mut status = "UpNext".to_string();
         let mut priority = 0u8;
 
-        if let Some(frontmatter_start) = content.find("---") {
-            if let Some(frontmatter_end) = content[frontmatter_start + 3..].find("---") {
-                let frontmatter =
-                    &content[frontmatter_start + 3..frontmatter_start + 3 + frontmatter_end];
-                if let Ok(metadata) = serde_yaml::from_str::<TaskMetadata>(frontmatter) {
-                    status = metadata.status;
-                    priority = metadata.priority;
-                }
+        if let Some(frontmatter) = content
+            .strip_prefix("---")
+            .and_then(|c| c.split_once("---"))
+        {
+            if let Ok(metadata) = serde_yaml::from_str::<TaskMetadata>(frontmatter.0.trim()) {
+                status = metadata.status;
+                priority = metadata.priority;
             }
         }
 
@@ -124,12 +123,9 @@ impl Storage {
         let existing_content = fs::read_to_string(&task_path)
             .ok()
             .and_then(|c| {
-                if let Some(frontmatter_start) = c.find("---") {
-                    if let Some(frontmatter_end) = c[frontmatter_start + 3..].find("---") {
-                        return Some(c[frontmatter_start + 3 + frontmatter_end + 3..].to_string());
-                    }
-                }
-                Some(c)
+                c.strip_prefix("---")
+                    .and_then(|c| c.split_once("---"))
+                    .map(|(_, content)| content[3..].to_string())
             })
             .unwrap_or_default();
 
