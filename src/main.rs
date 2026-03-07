@@ -1,8 +1,4 @@
-use std::{
-    error::Error,
-    fmt::Debug,
-    io::{self, stdout},
-};
+use std::{error::Error, fmt::Debug, io::stdout, process::Command};
 
 use cli::Cli;
 use ratatui::{
@@ -61,7 +57,7 @@ pub struct App {
     config: ConfigToml,
 }
 
-fn init_terminal() -> Result<Terminal<impl Backend>, Box<dyn Error>> {
+fn init_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<dyn Error>> {
     enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout());
@@ -107,9 +103,9 @@ impl App {
 
     fn run(
         &mut self,
-        mut terminal: Terminal<impl Backend>,
+        mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
         were_applied_migrations: bool,
-    ) -> io::Result<()> {
+    ) -> Result<(), Box<dyn Error>> {
         let mut input = Input::default();
 
         let mut items: Vec<ListItem> = vec![];
@@ -280,6 +276,44 @@ impl App {
                                 }
 
                                 App::change_view(self, ViewMode::DeleteTask);
+                            }
+                            Char('e') => {
+                                if items.is_empty() {
+                                    continue;
+                                }
+
+                                let markdown_path = Task::get_markdown_path(self);
+                                let input_clone = input.clone();
+                                drop(terminal);
+                                drop(input);
+
+                                restore_terminal().unwrap();
+
+                                Command::new("nvim")
+                                    .arg(markdown_path.as_os_str())
+                                    .status()
+                                    .expect("Failed to open nvim");
+
+                                enable_raw_mode().unwrap();
+                                stdout().execute(EnterAlternateScreen).unwrap();
+
+                                terminal = init_terminal().unwrap();
+
+                                let mut internal_projects = self.projects.clone();
+                                let project_idx = self.selected_project_index.selected().unwrap();
+                                let task_idx = self.selected_task_index.selected().unwrap();
+                                let relative_path = markdown_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .map(|s| s.to_string());
+                                if let Some(rel_path) = relative_path {
+                                    internal_projects[project_idx].tasks[task_idx].markdown =
+                                        Some(rel_path);
+                                    Json::write(internal_projects);
+                                }
+
+                                Task::reload(self, &mut items);
+                                input = input_clone;
                             }
                             Down | Tab | Char('j') => {
                                 self.next(&items);

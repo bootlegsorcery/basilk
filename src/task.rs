@@ -12,6 +12,7 @@ pub struct Task {
     pub title: String,
     pub status: String,
     pub priority: u8,
+    pub markdown: Option<String>,
 }
 
 pub const TASK_STATUS_DONE: &str = "Done";
@@ -73,6 +74,7 @@ impl Task {
                 title: "".to_string(),
                 status: "".to_string(),
                 priority: 0,
+                markdown: None,
             })
             .clone()
             .title;
@@ -150,6 +152,7 @@ impl Task {
             title: value.to_string(),
             status: TASK_STATUS_UP_NEXT.to_string(),
             priority: 0,
+            markdown: None,
         };
 
         let mut internal_projects = app.projects.clone();
@@ -210,5 +213,35 @@ impl Task {
 
         Json::write(internal_projects);
         Task::reload(app, items)
+    }
+
+    pub fn get_markdown_path(app: &mut App) -> std::path::PathBuf {
+        let task = Task::get_current(app);
+        let config_dir = Json::get_dir_path();
+        let mut path = config_dir.clone();
+        path.push("notes");
+
+        if let Some(ref markdown_path) = task.markdown {
+            path.push(markdown_path);
+        } else {
+            std::fs::create_dir_all(&path).ok();
+            let sanitized_title = task
+                .title
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>()
+                .trim()
+                .replace(' ', "_");
+            let filename = format!("{}.md", sanitized_title);
+            path.push(&filename);
+        }
+
+        path
     }
 }
