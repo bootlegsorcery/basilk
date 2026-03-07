@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::project::Project;
 
-static DIR_CONFIG_NAME: &str = env!("CARGO_PKG_NAME");
+static DIR_CONFIG_NAME: &str = ".basilk";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TaskMetadata {
@@ -20,9 +20,8 @@ pub struct Storage;
 
 impl Storage {
     pub fn get_data_dir() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap();
+        let mut path = std::env::current_dir().unwrap();
         path.push(DIR_CONFIG_NAME);
-        path.push("data");
         path
     }
 
