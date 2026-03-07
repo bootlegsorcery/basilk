@@ -200,11 +200,7 @@ impl Task {
 
         let status = value.to_string();
 
-        app.projects[project_idx].tasks[task_idx].status = status.clone();
-
-        if status == TASK_STATUS_DONE {
-            app.projects[project_idx].tasks[task_idx].priority = 0
-        }
+        app.projects[project_idx].tasks[task_idx].status = status;
 
         Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items)
