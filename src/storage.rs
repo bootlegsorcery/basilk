@@ -4,6 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::config::Config;
+
 use serde::{Deserialize, Serialize};
 
 use crate::project::Project;
@@ -39,6 +41,10 @@ impl Storage {
             return projects;
         }
 
+        // Load config once to get the origin status
+        let config = Config::read();
+        let default_status = Config::get_origin_status(&config);
+
         for entry in fs::read_dir(&data_dir).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
@@ -53,7 +59,7 @@ impl Storage {
                         let task_path = task_entry.path();
                         if task_path.is_file() && task_path.extension().map_or(false, |e| e == "md")
                         {
-                            if let Some(task) = Storage::read_task(&task_path) {
+                            if let Some(task) = Storage::read_task(&task_path, &default_status) {
                                 tasks.push(task);
                             }
                         }
@@ -70,11 +76,11 @@ impl Storage {
         projects
     }
 
-    fn read_task(path: &Path) -> Option<crate::task::Task> {
+    fn read_task(path: &Path, default_status: &str) -> Option<crate::task::Task> {
         let content = fs::read_to_string(path).ok()?;
         let filename = path.file_stem()?.to_string_lossy().to_string();
 
-        let mut status = "UpNext".to_string();
+        let mut status = default_status.to_string();
         let mut priority = 0u8;
 
         if let Some(frontmatter) = content
@@ -151,7 +157,7 @@ impl Storage {
         fs::remove_dir_all(project_dir).ok();
     }
 
-    pub fn create_task(project_name: &str, task_title: &str) -> PathBuf {
+    pub fn create_task(project_name: &str, task_title: &str, origin_status: &str) -> PathBuf {
         let data_dir = Storage::get_data_dir();
         let project_dir = data_dir.join(project_name);
 
@@ -163,8 +169,8 @@ impl Storage {
         let task_path = project_dir.join(&filename);
 
         let content = format!(
-            "---\nstatus: UpNext\npriority: 0\n---\n\n# {}\n",
-            task_title
+            "---\nstatus: {}\npriority: 0\n---\n\n# {}\n",
+            origin_status, task_title
         );
 
         fs::write(&task_path, content).ok();

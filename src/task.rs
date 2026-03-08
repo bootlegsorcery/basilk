@@ -114,17 +114,13 @@ impl Task {
     }
 
     pub fn create(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
+        use crate::config::Config;
         if value.is_empty() {
             return;
         }
         let project = &app.projects[app.selected_project_index.selected().unwrap()];
-        let task_path = Storage::create_task(&project.title, value);
-        let default_status = app
-            .config
-            .statuses
-            .first()
-            .map(|s| s.label.clone())
-            .unwrap_or_else(|| "UpNext".to_string());
+        let default_status = Config::get_origin_status(&app.config);
+        let task_path = Storage::create_task(&project.title, value, &default_status);
         let new_task = Task {
             title: value.to_string(),
             status: default_status,

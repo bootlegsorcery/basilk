@@ -26,6 +26,7 @@ pub struct StatusConfig {
     pub label: String,
     pub color: String,
     pub terminal: bool,
+    pub origin: Option<bool>,
 }
 
 impl StatusConfig {
@@ -65,16 +66,19 @@ impl Config {
                     label: "UpNext".to_string(),
                     color: "light_magenta".to_string(),
                     terminal: false,
+                    origin: Some(true),
                 },
                 StatusConfig {
                     label: "OnGoing".to_string(),
                     color: "yellow".to_string(),
                     terminal: false,
+                    origin: None,
                 },
                 StatusConfig {
                     label: "Done".to_string(),
                     color: "light_green".to_string(),
                     terminal: true,
+                    origin: None,
                 },
             ],
         }
@@ -115,6 +119,51 @@ impl Config {
             }
         };
 
+        // Validate the configuration
+        Self::validate(&data);
+
         return data;
+    }
+
+    fn validate(config: &ConfigToml) {
+        // Count states with origin = true
+        let origin_count = config
+            .statuses
+            .iter()
+            .filter(|s| s.origin == Some(true))
+            .count();
+
+        // Check that only one state has origin = true
+        if origin_count > 1 {
+            eprintln!(
+                "{} - ERROR: Multiple states have 'origin = true'. Only one state can be the origin state.",
+                env!("CARGO_PKG_NAME")
+            );
+            exit(1);
+        }
+
+        // If custom fields (non-default statuses) are configured, an origin must be present
+        let has_custom_statuses = !config.statuses.is_empty()
+            && !(config.statuses.len() == 3
+                && config.statuses.iter().any(|s| s.label == "UpNext")
+                && config.statuses.iter().any(|s| s.label == "OnGoing")
+                && config.statuses.iter().any(|s| s.label == "Done"));
+
+        if has_custom_statuses && origin_count == 0 {
+            eprintln!(
+                "{} - ERROR: Custom statuses are configured but no origin state is defined. Please set 'origin = true' on one status.",
+                env!("CARGO_PKG_NAME")
+            );
+            exit(1);
+        }
+    }
+
+    pub fn get_origin_status(config: &ConfigToml) -> String {
+        config
+            .statuses
+            .iter()
+            .find(|s| s.origin == Some(true))
+            .map(|s| s.label.clone())
+            .unwrap_or_else(|| "UpNext".to_string())
     }
 }
