@@ -37,7 +37,6 @@ pub enum ViewMode {
     AddProject,
     DeleteProject,
     GitCommit,
-    Help,
 
     ViewTasks,
     RenameTask,
@@ -67,6 +66,7 @@ pub struct App {
     is_git_repo: bool,
     git_has_changes: bool,
     git_commit_message: String,
+    show_help: bool,
 }
 
 fn init_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<dyn Error>> {
@@ -121,6 +121,7 @@ impl App {
             is_git_repo,
             git_has_changes,
             git_commit_message: String::new(),
+            show_help: false,
         }
     }
 
@@ -148,6 +149,18 @@ impl App {
                 // Capture only the "Press" event to prevent double input on Windows
                 if key.kind == KeyEventKind::Press {
                     use KeyCode::*;
+
+                    // Handle help modal first - it should be modal above any view
+                    if self.show_help {
+                        match key.code {
+                            Esc | Char('q') | Char('?') => {
+                                self.show_help = false;
+                            }
+                            _ => {}
+                        }
+                        continue;
+                    }
+
                     match self.view_mode {
                         ViewMode::ViewProjects => match key.code {
                             Enter | Right | Char('l') => {
@@ -199,13 +212,7 @@ impl App {
                                 return Ok(());
                             }
                             Char('?') => {
-                                App::change_view(self, ViewMode::Help);
-                            }
-                            _ => {}
-                        },
-                        ViewMode::Help => match key.code {
-                            Esc | Char('q') | Char('?') => {
-                                App::change_view(self, ViewMode::ViewProjects);
+                                self.show_help = true;
                             }
                             _ => {}
                         },
@@ -389,7 +396,7 @@ impl App {
                                 return Ok(());
                             }
                             Char('?') => {
-                                App::change_view(self, ViewMode::Help);
+                                self.show_help = true;
                             }
                             _ => {}
                         },
@@ -553,7 +560,7 @@ impl App {
             View::show_git_commit_modal(self, f, area, input, &modified_files)
         }
 
-        if self.view_mode == ViewMode::Help {
+        if self.show_help {
             View::show_help_modal(self, f, area)
         }
 
@@ -605,7 +612,6 @@ impl App {
             ViewMode::ChangePriorityTask => return &mut self.selected_priority_task_index,
             ViewMode::AddTask => return &mut self.selected_task_index,
             ViewMode::DeleteTask => return &mut self.selected_task_index,
-            ViewMode::Help => return &mut self.selected_project_index,
         };
     }
 
