@@ -31,35 +31,65 @@ impl Task {
     pub fn load_priority_items(items: &mut Vec<ListItem>) {
         items.clear();
         for priority_value in TASK_PRIORITIES {
-            let span = Span::styled(Util::get_priority_indicator(priority_value), Style::new().fg(Color::Red));
+            let span = Span::styled(
+                Util::get_priority_indicator(priority_value),
+                Style::new().fg(Color::Red),
+            );
             items.push(ListItem::from(span));
         }
     }
 
     pub fn load_items(app: &mut App, items: &mut Vec<ListItem>) {
         let tasks = &mut app.projects[app.selected_project_index.selected().unwrap()].tasks;
-        let last_task_title_selected = tasks.clone().get(app.selected_task_index.selected().unwrap_or(0)).unwrap_or(&Task { title: "".to_string(), status: "".to_string(), priority: 0, markdown: None }).clone().title;
+        let last_task_title_selected = tasks
+            .clone()
+            .get(app.selected_task_index.selected().unwrap_or(0))
+            .unwrap_or(&Task {
+                title: "".to_string(),
+                status: "".to_string(),
+                priority: 0,
+                markdown: None,
+            })
+            .clone()
+            .title;
         let config = &app.config;
 
-        tasks.sort_by_key(|t| TASK_STATUSES_SORT_ORDER.into_iter().position(|o| o == t.status));
+        tasks.sort_by_key(|t| {
+            TASK_STATUSES_SORT_ORDER
+                .into_iter()
+                .position(|o| o == t.status)
+        });
         tasks.sort_by_key(|t| TASK_PRIORITIES.into_iter().position(|o| o == t.priority));
 
-        let new_index = tasks.into_iter().position(|t| t.title == last_task_title_selected).unwrap_or(0);
+        let new_index = tasks
+            .into_iter()
+            .position(|t| t.title == last_task_title_selected)
+            .unwrap_or(0);
         items.clear();
 
         for task in tasks.iter() {
             let status_config = config.statuses.iter().find(|s| s.label == task.status);
             let is_terminal = status_config.map(|s| s.terminal).unwrap_or(false);
             let status_color = status_config.map(|s| s.to_color()).unwrap_or(Color::Gray);
-            let modifier = if is_terminal { Modifier::CROSSED_OUT } else { Modifier::empty() };
+            let modifier = if is_terminal {
+                Modifier::CROSSED_OUT
+            } else {
+                Modifier::empty()
+            };
 
             let mut repr = vec![
-                Span::styled(format!("[{}] ", task.status), Style::default().fg(status_color).add_modifier(modifier)),
+                Span::styled(
+                    format!("[{}] ", task.status),
+                    Style::default().fg(status_color).add_modifier(modifier),
+                ),
                 Span::styled(task.title.clone(), Style::default().add_modifier(modifier)),
             ];
 
             if task.priority != 0 {
-                let priority_repr = vec![Span::styled(format!("[{}] ", Util::get_priority_indicator(task.priority)), Style::new().fg(Color::Red))];
+                let priority_repr = vec![Span::styled(
+                    format!("[{}] ", Util::get_priority_indicator(task.priority)),
+                    Style::new().fg(Color::Red),
+                )];
                 repr = [priority_repr, repr].concat();
             }
 
@@ -79,17 +109,32 @@ impl Task {
     }
 
     pub fn get_current(app: &mut App) -> &Task {
-        &app.projects[app.selected_project_index.selected().unwrap()].tasks[app.selected_task_index.selected().unwrap()]
+        &app.projects[app.selected_project_index.selected().unwrap()].tasks
+            [app.selected_task_index.selected().unwrap()]
     }
 
     pub fn create(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
-        if value.is_empty() { return; }
+        if value.is_empty() {
+            return;
+        }
         let project = &app.projects[app.selected_project_index.selected().unwrap()];
         let task_path = Storage::create_task(&project.title, value);
-        let default_status = app.config.statuses.first().map(|s| s.label.clone()).unwrap_or_else(|| "UpNext".to_string());
-        let new_task = Task { title: value.to_string(), status: default_status, priority: 0, markdown: Some(task_path.file_name().unwrap().to_string_lossy().to_string()) };
+        let default_status = app
+            .config
+            .statuses
+            .first()
+            .map(|s| s.label.clone())
+            .unwrap_or_else(|| "UpNext".to_string());
+        let new_task = Task {
+            title: value.to_string(),
+            status: default_status,
+            priority: 0,
+            markdown: Some(task_path.file_name().unwrap().to_string_lossy().to_string()),
+        };
         let mut internal_projects = app.projects.clone();
-        internal_projects[app.selected_project_index.selected().unwrap()].tasks.push(new_task);
+        internal_projects[app.selected_project_index.selected().unwrap()]
+            .tasks
+            .push(new_task);
         Task::reload(app, items);
     }
 
@@ -133,7 +178,17 @@ impl Task {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
         let project_name = app.projects[project_idx].title.clone();
-        let task_filename = app.projects[project_idx].tasks[task_idx].markdown.clone().unwrap_or_else(|| format!("{}.md", app.projects[project_idx].tasks[task_idx].title.replace(' ', "_")));
+        let task_filename = app.projects[project_idx].tasks[task_idx]
+            .markdown
+            .clone()
+            .unwrap_or_else(|| {
+                format!(
+                    "{}.md",
+                    app.projects[project_idx].tasks[task_idx]
+                        .title
+                        .replace(' ', "_")
+                )
+            });
         Storage::delete_task(&project_name, &task_filename);
         let mut internal_projects = app.projects.clone();
         internal_projects[project_idx].tasks.remove(task_idx);

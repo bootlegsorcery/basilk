@@ -198,16 +198,64 @@ impl Storage {
         project_dir.join(filename)
     }
 
-    pub fn save_markdown_path(app: &mut crate::App, path: &Path) {
+    pub fn get_task_content(app: &mut crate::App) -> String {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
+        let project = &app.projects[project_idx];
+        let task = &project.tasks[task_idx];
 
-        if let Some(project) = app.projects.get_mut(project_idx) {
-            if let Some(task) = project.tasks.get_mut(task_idx) {
-                task.markdown = Some(path.file_name().unwrap().to_string_lossy().to_string());
-            }
+        let data_dir = Storage::get_data_dir();
+        let project_dir = data_dir.join(&project.title);
+        let task_filename = task
+            .markdown
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
+        let task_path = project_dir.join(&task_filename);
+
+        fs::read_to_string(&task_path)
+            .ok()
+            .and_then(|c| {
+                c.strip_prefix("---")
+                    .and_then(|c| c.split_once("---"))
+                    .map(|(_, content)| content.trim_start().to_string())
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn save_task_content(app: &mut crate::App, content: &str) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+        let project = &app.projects[project_idx];
+        let task = &project.tasks[task_idx];
+
+        let data_dir = Storage::get_data_dir();
+        let project_dir = data_dir.join(&project.title);
+
+        if !project_dir.exists() {
+            fs::create_dir_all(&project_dir).ok();
         }
 
-        Storage::write_task(app, project_idx, task_idx);
+        let task_filename = task
+            .markdown
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
+
+        let task_path = project_dir.join(&task_filename);
+
+        let front_matter = format!(
+            "---\nstatus: {}\npriority: {}\n---\n\n",
+            task.status, task.priority
+        );
+
+        let full_content = format!("{}{}", front_matter, content);
+        fs::write(&task_path, full_content).ok();
+    }
+
+    pub fn get_temp_edit_path() -> PathBuf {
+        let mut path = std::env::temp_dir();
+        path.push("basilk_edit.md");
+        path
     }
 }

@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Debug, io::stdout, process::Command};
+use std::{error::Error, fmt::Debug, fs, io::stdout, process::Command};
 
 use cli::Cli;
 use ratatui::{
@@ -277,34 +277,31 @@ impl App {
                                     continue;
                                 }
 
-                                let markdown_path = Task::get_markdown_path(self);
                                 let input_clone = input.clone();
                                 drop(terminal);
                                 drop(input);
 
                                 restore_terminal().unwrap();
 
+                                let content = Storage::get_task_content(self);
+                                let temp_path = Storage::get_temp_edit_path();
+                                fs::write(&temp_path, &content).ok();
+
                                 Command::new("nvim")
-                                    .arg(markdown_path.as_os_str())
+                                    .arg(temp_path.as_os_str())
                                     .status()
                                     .expect("Failed to open nvim");
+
+                                let edited_content =
+                                    fs::read_to_string(&temp_path).ok().unwrap_or_default();
+                                fs::remove_file(&temp_path).ok();
 
                                 enable_raw_mode().unwrap();
                                 stdout().execute(EnterAlternateScreen).unwrap();
 
-                                terminal = init_terminal().unwrap();
+                                Storage::save_task_content(self, &edited_content);
 
-                                let project_idx = self.selected_project_index.selected().unwrap();
-                                let task_idx = self.selected_task_index.selected().unwrap();
-                                let relative_path = markdown_path
-                                    .file_name()
-                                    .and_then(|n| n.to_str())
-                                    .map(|s| s.to_string());
-                                if let Some(rel_path) = relative_path {
-                                    self.projects[project_idx].tasks[task_idx].markdown =
-                                        Some(rel_path);
-                                    Storage::write_task(self, project_idx, task_idx);
-                                }
+                                terminal = init_terminal().unwrap();
 
                                 Task::reload(self, &mut items);
                                 input = input_clone;
@@ -340,13 +337,9 @@ impl App {
                             Enter => {
                                 let status_label = self.config.statuses
                                     [self.selected_status_task_index.selected().unwrap()]
-                                    .label
-                                    .clone();
-                                Task::change_status(
-                                    self,
-                                    &mut items,
-                                    &status_label,
-                                );
+                                .label
+                                .clone();
+                                Task::change_status(self, &mut items, &status_label);
 
                                 self.selected_status_task_index.select(Some(0));
                                 App::change_view(self, ViewMode::ViewTasks);
