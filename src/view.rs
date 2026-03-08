@@ -156,7 +156,7 @@ impl View {
                 .unwrap_or(usize::MAX);
 
             match status_a_idx.cmp(&status_b_idx) {
-                std::cmp::Ordering::Equal => b.priority.cmp(&a.priority), // Higher priority first
+                std::cmp::Ordering::Equal => a.priority.cmp(&b.priority), // Lower number = higher priority (1 > 2 > 3 > 0)
                 other => other,
             }
         });
@@ -324,7 +324,7 @@ impl View {
                 .unwrap_or(usize::MAX);
 
             match status_a_idx.cmp(&status_b_idx) {
-                std::cmp::Ordering::Equal => b.priority.cmp(&a.priority), // Higher priority first
+                std::cmp::Ordering::Equal => a.priority.cmp(&b.priority), // Lower number = higher priority (1 > 2 > 3 > 0)
                 other => other,
             }
         });

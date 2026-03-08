@@ -51,6 +51,7 @@ impl Task {
             .unwrap_or_default();
 
         // Sort tasks by status order in config, then by priority (high to low)
+        // Priority 1 = !!! (highest), 2 = !! (medium), 3 = ! (lowest), 0 = none
         tasks.sort_by(|a, b| {
             let status_a_idx = config
                 .statuses
@@ -64,7 +65,8 @@ impl Task {
                 .unwrap_or(usize::MAX);
 
             match status_a_idx.cmp(&status_b_idx) {
-                std::cmp::Ordering::Equal => b.priority.cmp(&a.priority), // Higher priority first
+                // Lower priority number = higher priority (1 > 2 > 3 > 0)
+                std::cmp::Ordering::Equal => a.priority.cmp(&b.priority),
                 other => other,
             }
         });
