@@ -63,14 +63,20 @@ impl Config {
             ui: Ui { show_help: true },
             statuses: vec![
                 StatusConfig {
-                    label: "UpNext".to_string(),
+                    label: "Todo".to_string(),
                     color: "light_magenta".to_string(),
                     terminal: false,
                     origin: Some(true),
                 },
                 StatusConfig {
-                    label: "OnGoing".to_string(),
+                    label: "In Progress".to_string(),
                     color: "yellow".to_string(),
+                    terminal: false,
+                    origin: None,
+                },
+                StatusConfig {
+                    label: "Blocked".to_string(),
+                    color: "red".to_string(),
                     terminal: false,
                     origin: None,
                 },
