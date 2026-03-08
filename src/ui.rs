@@ -121,9 +121,9 @@ impl Ui {
 
         // Height: input box (3 lines) + gap + tip (1 line) = 5
         let modal_height = 5u16;
-        let modal_area = Ui::create_rect_area(percent_x, modal_height, area);
+        let modal_area = Ui::create_centered_modal_area(percent_x, modal_height, area);
 
-        // Clear the modal area
+        // Clear the modal area first to make it solid
         f.render_widget(Clear, modal_area);
 
         // Split modal area: input widget takes top 3 lines, tip takes bottom 1 line
