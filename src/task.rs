@@ -65,8 +65,15 @@ impl Task {
                 .unwrap_or(usize::MAX);
 
             match status_a_idx.cmp(&status_b_idx) {
-                // Lower priority number = higher priority (1 > 2 > 3 > 0)
-                std::cmp::Ordering::Equal => a.priority.cmp(&b.priority),
+                // Sort priority: 1 (!!!), 2 (!!), 3 (!), then 0 (none) at the end
+                std::cmp::Ordering::Equal => {
+                    match (a.priority, b.priority) {
+                        (0, 0) => std::cmp::Ordering::Equal,
+                        (0, _) => std::cmp::Ordering::Greater, // 0 goes last
+                        (_, 0) => std::cmp::Ordering::Less,    // 0 goes last
+                        _ => a.priority.cmp(&b.priority),      // 1, 2, 3 in order
+                    }
+                }
                 other => other,
             }
         });
