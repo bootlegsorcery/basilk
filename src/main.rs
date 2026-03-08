@@ -24,7 +24,7 @@ mod view;
 use config::{Config, ConfigToml};
 use project::Project;
 use storage::Storage;
-use task::{Task, TASK_PRIORITIES, TASK_STATUSES};
+use task::{Task, TASK_PRIORITIES};
 use view::View;
 
 #[derive(Default, PartialEq, Debug)]
@@ -108,7 +108,7 @@ impl App {
         Project::load_items(self, &mut items);
 
         let mut status_items: Vec<ListItem> = vec![];
-        Task::load_statues_items(&mut status_items);
+        Task::load_statues_items(self, &mut status_items);
 
         let mut priority_items: Vec<ListItem> = vec![];
         Task::load_priority_items(&mut priority_items);
@@ -223,10 +223,13 @@ impl App {
                                     continue;
                                 }
 
-                                let index = TASK_STATUSES
-                                    .into_iter()
-                                    .position(|t| t == &Task::get_current(self).status)
-                                    .unwrap();
+                                let current_status = Task::get_current(self).status.clone();
+                                let index = self
+                                    .config
+                                    .statuses
+                                    .iter()
+                                    .position(|s| s.label == current_status)
+                                    .unwrap_or(0);
 
                                 self.selected_status_task_index.select(Some(index));
 
@@ -335,11 +338,14 @@ impl App {
                         },
                         ViewMode::ChangeStatusTask => match key.code {
                             Enter => {
+                                let status_label = self.config.statuses
+                                    [self.selected_status_task_index.selected().unwrap()]
+                                    .label
+                                    .clone();
                                 Task::change_status(
                                     self,
                                     &mut items,
-                                    TASK_STATUSES
-                                        [self.selected_status_task_index.selected().unwrap()],
+                                    &status_label,
                                 );
 
                                 self.selected_status_task_index.select(Some(0));

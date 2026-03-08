@@ -5,6 +5,7 @@ use std::{
     process::exit,
 };
 
+use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 use crate::storage::Storage;
@@ -12,6 +13,7 @@ use crate::storage::Storage;
 #[derive(Deserialize, Serialize)]
 pub struct ConfigToml {
     pub ui: Ui,
+    pub statuses: Vec<StatusConfig>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -19,14 +21,62 @@ pub struct Ui {
     pub show_help: bool,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct StatusConfig {
+    pub label: String,
+    pub color: String,
+    pub terminal: bool,
+}
+
+impl StatusConfig {
+    pub fn to_color(&self) -> Color {
+        match self.color.to_lowercase().as_str() {
+            "red" => Color::Red,
+            "green" => Color::Green,
+            "blue" => Color::Blue,
+            "yellow" => Color::Yellow,
+            "magenta" => Color::Magenta,
+            "cyan" => Color::Cyan,
+            "white" => Color::White,
+            "black" => Color::Black,
+            "light_red" => Color::LightRed,
+            "light_green" => Color::LightGreen,
+            "light_blue" => Color::LightBlue,
+            "light_yellow" => Color::LightYellow,
+            "light_magenta" => Color::LightMagenta,
+            "light_cyan" => Color::LightCyan,
+            "gray" => Color::Gray,
+            "dark_gray" => Color::DarkGray,
+            _ => Color::Gray,
+        }
+    }
+}
+
 pub struct Config;
 
 static CONFIG_FILE_NAME: &str = "config";
 
 impl Config {
-    fn get_default() -> ConfigToml {
+    pub fn get_default() -> ConfigToml {
         ConfigToml {
             ui: Ui { show_help: true },
+            statuses: vec![
+                StatusConfig {
+                    label: "UpNext".to_string(),
+                    color: "light_magenta".to_string(),
+                    terminal: false,
+                },
+                StatusConfig {
+                    label: "OnGoing".to_string(),
+                    color: "yellow".to_string(),
+                    terminal: false,
+                },
+                StatusConfig {
+                    label: "Done".to_string(),
+                    color: "light_green".to_string(),
+                    terminal: true,
+                },
+            ],
         }
     }
 

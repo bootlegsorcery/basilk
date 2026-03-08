@@ -5,11 +5,7 @@ use ratatui::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    storage::Storage,
-    task::{Task, TASK_STATUS_DONE},
-    App,
-};
+use crate::{storage::Storage, task::Task, App};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Project {
@@ -34,10 +30,18 @@ impl Project {
         for project in app.projects.iter() {
             let tasks = &project.tasks;
 
+            let terminal_statuses: Vec<&str> = app
+                .config
+                .statuses
+                .iter()
+                .filter(|s| s.terminal)
+                .map(|s| s.label.as_str())
+                .collect();
+
             let done_tasks: Vec<Task> = tasks
                 .clone()
                 .into_iter()
-                .filter(|t| t.status == TASK_STATUS_DONE)
+                .filter(|t| terminal_statuses.contains(&t.status.as_str()))
                 .collect();
 
             let percentage = if tasks.len() == 0 {
