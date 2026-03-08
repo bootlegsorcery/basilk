@@ -155,20 +155,25 @@ impl Task {
     pub fn rename(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
-        let mut internal_projects = app.projects.clone();
-        let old_title = internal_projects[project_idx].tasks[task_idx].title.clone();
-        internal_projects[project_idx].tasks[task_idx].title = value.to_string();
-        let project = &internal_projects[project_idx];
+
+        // Get the old title before updating
+        let old_title = app.projects[project_idx].tasks[task_idx].title.clone();
+        let project_title = app.projects[project_idx].title.clone();
+
+        // Calculate filenames
         let old_filename = format!("{}.md", old_title.replace(' ', "_"));
         let new_filename = format!("{}.md", value.replace(' ', "_"));
+
+        // Rename the file on disk
         let data_dir = Storage::get_data_dir();
-        let old_path = data_dir.join(&project.title).join(&old_filename);
-        let new_path = data_dir.join(&project.title).join(&new_filename);
+        let old_path = data_dir.join(&project_title).join(&old_filename);
+        let new_path = data_dir.join(&project_title).join(&new_filename);
         std::fs::rename(&old_path, &new_path).ok();
-        if let Some(task) = internal_projects[project_idx].tasks.get_mut(task_idx) {
-            task.markdown = Some(new_filename);
-        }
-        Storage::write_task(app, project_idx, task_idx);
+
+        // Update the task in app.projects directly
+        app.projects[project_idx].tasks[task_idx].title = value.to_string();
+        app.projects[project_idx].tasks[task_idx].markdown = Some(new_filename);
+
         Task::reload(app, items);
     }
 
