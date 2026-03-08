@@ -53,18 +53,55 @@ impl View {
         f: &mut Frame,
         area: Rect,
     ) {
-        let area = Ui::create_rect_area(10, 5, area);
+        let selected_idx = app.selected_status_task_index.selected().unwrap_or(0);
+        let total_items = status_items.len();
+
+        // Cap height at 6 (4 items + 2 borders), or less if fewer items
+        let modal_height = (total_items as u16 + 2).min(6);
+
+        // Width based on content
+        let max_label_len = app
+            .config
+            .statuses
+            .iter()
+            .map(|s| s.label.len())
+            .max()
+            .unwrap_or(10);
+        let content_width = (max_label_len + 8) as u16; // +8 for borders, padding, and scroll indicators
+        let percent_x =
+            ((content_width as f32 / area.width as f32) * 100.0).clamp(20.0, 50.0) as u16;
+
+        // Use fixed height and center vertically
+        let area = Ui::create_centered_modal_area(percent_x, modal_height, area);
+
+        // Always clear to make modal solid
+        f.render_widget(Clear, area);
+
+        // Build title with scroll indicator on left side
+        let scroll_indicator = if selected_idx > 0 { "▲ " } else { "  " };
+        let more_indicator = if selected_idx < total_items - 1 {
+            " ▼"
+        } else {
+            "  "
+        };
+        let title = format!(
+            "{}{}/{}{}",
+            scroll_indicator,
+            selected_idx + 1,
+            total_items,
+            more_indicator
+        );
 
         let task_status_list_widget = List::new(status_items.clone())
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED),
+            )
             .highlight_symbol("> ")
             .highlight_spacing(HighlightSpacing::Always)
-            .block(Block::bordered().title("Status"));
+            .block(Block::bordered().title(title));
 
-        // Only clear if we're in list view mode - kanban should show modal over the cards
-        if app.task_view_mode == crate::TaskViewMode::List {
-            f.render_widget(Clear, area);
-        }
         f.render_stateful_widget(task_status_list_widget, area, app.use_state())
     }
 

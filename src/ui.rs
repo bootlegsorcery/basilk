@@ -25,6 +25,25 @@ impl Ui {
         .split(popup_layout[1])[1]
     }
 
+    pub fn create_centered_modal_area(percent_x: u16, height: u16, r: Rect) -> Rect {
+        // Calculate vertical position to center the modal
+        let top_margin = (r.height.saturating_sub(height)) / 2;
+
+        let popup_layout = Layout::vertical([
+            Constraint::Length(top_margin),
+            Constraint::Length(height),
+            Constraint::Min(0),
+        ])
+        .split(r);
+
+        Layout::horizontal([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Min(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
+    }
+
     pub fn create_modal<W: Widget>(
         f: &mut Frame,
         percent_x: u16,
