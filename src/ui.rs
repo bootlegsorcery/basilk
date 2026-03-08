@@ -38,7 +38,11 @@ impl Ui {
     }
 
     pub fn create_input_modal(title: &str, f: &mut Frame, area: Rect, input: &Input) {
-        let area = Ui::create_rect_area(50, 3, area);
+        // Calculate dynamic width: 70% of terminal, with min 40 and max 80 chars
+        let popup_width = ((area.width as f32 * 0.7) as u16).clamp(40, 80);
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        let area = Ui::create_rect_area(percent_x, 3, area);
 
         let width = area.width.max(3) - 3;
         let scroll = input.visual_scroll(width as usize);
