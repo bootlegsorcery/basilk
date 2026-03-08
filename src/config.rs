@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::Storage;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ConfigToml {
     pub ui: Ui,
     pub statuses: Vec<StatusConfig>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Ui {
     pub show_help: bool,
 }

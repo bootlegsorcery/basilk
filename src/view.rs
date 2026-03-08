@@ -1,7 +1,7 @@
 use ratatui::{
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    text::{Line, Text},
+    text::{Line, Span, Text},
     widgets::{Block, Clear, HighlightSpacing, List, ListItem, Paragraph, Wrap},
     Frame,
 };
@@ -92,22 +92,200 @@ impl View {
             _ => Block::bordered().title(Util::get_spaced_title(&Project::get_current(app).title)),
         };
 
-        // Iterate through all elements in the `items` and stylize them.
-        let items = items.clone();
-
         // Create a List from all list items and highlight the currently selected one
-        let items = List::new(items)
+        let list = List::new(items.clone())
             .highlight_style(Style::default().add_modifier(Modifier::BOLD))
             .highlight_symbol("> ")
             .highlight_spacing(HighlightSpacing::Always)
             .block(block);
 
-        if app.view_mode == ViewMode::ChangeStatusTask
-            || app.view_mode == ViewMode::ChangePriorityTask
-        {
-            f.render_widget(items, area)
+        // In ViewTasks mode, check task_view_mode to decide rendering
+        if matches!(
+            app.view_mode,
+            ViewMode::ViewTasks | ViewMode::AddTask | ViewMode::RenameTask | ViewMode::DeleteTask
+        ) {
+            if app.task_view_mode == crate::TaskViewMode::Kanban {
+                View::render_task_cards(app, f, area);
+            } else {
+                f.render_stateful_widget(list, area, app.use_state());
+            }
         } else {
-            f.render_stateful_widget(items, area, app.use_state());
+            if app.view_mode == ViewMode::ChangeStatusTask
+                || app.view_mode == ViewMode::ChangePriorityTask
+            {
+                f.render_widget(list, area)
+            } else {
+                f.render_stateful_widget(list, area, app.use_state());
+            }
+        }
+    }
+
+    fn render_task_cards(app: &mut App, f: &mut Frame, area: Rect) {
+        // Clone necessary data to avoid borrow issues
+        let config = app.config.clone();
+        let project_idx = app.selected_project_index.selected().unwrap_or(0);
+        let selected_task_idx = app.selected_task_index.selected().unwrap_or(0);
+
+        if project_idx >= app.projects.len() {
+            return;
+        }
+
+        let mut tasks: Vec<Task> = app.projects[project_idx].tasks.clone();
+
+        // Sort tasks by status order in config, then by priority (high to low) - same as load_items
+        tasks.sort_by(|a, b| {
+            let status_a_idx = config
+                .statuses
+                .iter()
+                .position(|s| s.label == a.status)
+                .unwrap_or(usize::MAX);
+            let status_b_idx = config
+                .statuses
+                .iter()
+                .position(|s| s.label == b.status)
+                .unwrap_or(usize::MAX);
+
+            match status_a_idx.cmp(&status_b_idx) {
+                std::cmp::Ordering::Equal => b.priority.cmp(&a.priority), // Higher priority first
+                other => other,
+            }
+        });
+
+        // Get terminal statuses for strike-through styling
+        let terminal_statuses: Vec<String> = config
+            .statuses
+            .iter()
+            .filter(|s| s.terminal)
+            .map(|s| s.label.clone())
+            .collect();
+
+        // Create horizontal layout with columns for each status
+        let status_labels: Vec<String> = config.statuses.iter().map(|s| s.label.clone()).collect();
+        let num_columns = status_labels.len().max(1);
+
+        // Build constraints for columns (equal width)
+        let constraints: Vec<Constraint> = (0..num_columns)
+            .map(|_| Constraint::Percentage((100 / num_columns) as u16))
+            .collect();
+
+        let columns = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(constraints)
+            .split(area);
+
+        // Keep track of which task index we're rendering globally
+        let mut global_task_idx: usize = 0;
+
+        // Render each column
+        for (_col_idx, (column_area, status_label)) in
+            columns.iter().zip(status_labels.iter()).enumerate()
+        {
+            // Get tasks for this status - already sorted by priority from the main sort
+            let status_tasks: Vec<&Task> =
+                tasks.iter().filter(|t| t.status == *status_label).collect();
+
+            // Find status config for color
+            let status_config = config.statuses.iter().find(|s| s.label == *status_label);
+            let status_color = status_config
+                .map(|s| s.to_color())
+                .unwrap_or(ratatui::style::Color::Gray);
+            let is_terminal = terminal_statuses.contains(status_label);
+
+            // Create column block with status title
+            let column_block = Block::bordered()
+                .title(format!(" {} ", status_label))
+                .border_style(Style::default().fg(status_color));
+
+            let inner_area = column_block.inner(*column_area);
+            f.render_widget(column_block, *column_area);
+
+            // Render tasks as cards in this column
+            let mut current_y = inner_area.y;
+            let card_height = 3u16; // Title + spacing
+
+            for task in status_tasks.iter() {
+                // Check if this is the selected task
+                let is_currently_selected = selected_task_idx == global_task_idx;
+
+                if current_y + card_height > inner_area.bottom() {
+                    global_task_idx += 1;
+                    continue; // Skip rendering if out of bounds, but still increment
+                }
+
+                let card_area = Rect {
+                    x: inner_area.x,
+                    y: current_y,
+                    width: inner_area.width,
+                    height: card_height,
+                };
+
+                // Build task content
+                let mut content = task.title.clone();
+                if task.priority != 0 {
+                    content = format!(
+                        "[{}] {}",
+                        Util::get_priority_indicator(task.priority),
+                        content
+                    );
+                }
+
+                let modifier = if is_terminal {
+                    Modifier::CROSSED_OUT
+                } else {
+                    Modifier::empty()
+                };
+
+                let card_style = if is_currently_selected {
+                    Style::default()
+                        .fg(status_color)
+                        .add_modifier(Modifier::BOLD)
+                        .add_modifier(Modifier::REVERSED)
+                } else {
+                    Style::default().add_modifier(modifier)
+                };
+
+                // Render card with border
+                let card_block = Block::default()
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(if is_currently_selected {
+                        Style::default()
+                            .fg(status_color)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(status_color)
+                    });
+
+                let card_inner = card_block.inner(card_area);
+                f.render_widget(card_block, card_area);
+
+                // Render task text
+                let task_text = Paragraph::new(Line::from(vec![
+                    Span::styled(
+                        if is_currently_selected {
+                            "> ".to_string()
+                        } else {
+                            "  ".to_string()
+                        },
+                        Style::default().fg(status_color),
+                    ),
+                    Span::styled(content, card_style),
+                ]));
+                f.render_widget(task_text, card_inner);
+
+                current_y += card_height + 1; // +1 for spacing between cards
+                global_task_idx += 1;
+            }
+
+            // Fill remaining space
+            if current_y < inner_area.bottom() {
+                let empty_area = Rect {
+                    x: inner_area.x,
+                    y: current_y,
+                    width: inner_area.width,
+                    height: inner_area.bottom() - current_y,
+                };
+                f.render_widget(Clear, empty_area);
+            }
         }
     }
 
@@ -121,7 +299,7 @@ impl View {
             ViewMode::DeleteProject => "<y> confirm - <n> cancel",
 
             ViewMode::ViewTasks => {
-                "<Up/Down k/j> next/prev - <Esc/Left/h> go to projects - <Enter> change status - <p> change priority - <n> new - <r> rename - <d> delete - <e> edit notes - <q> quit"
+                "<Up/Down k/j> next/prev - <Esc/Left/h> go to projects - <Enter> change status - <p> change priority - <n> new - <r> rename - <d> delete - <e> edit notes - <v> toggle view - <q> quit"
             }
             ViewMode::RenameTask => "<Enter> confirm - <Esc> cancel",
             ViewMode::ChangeStatusTask => "<Up/Down k/j> next/prev - <Enter> confirm - <Esc> cancel",

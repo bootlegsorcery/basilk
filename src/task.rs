@@ -40,31 +40,40 @@ impl Task {
     }
 
     pub fn load_items(app: &mut App, items: &mut Vec<ListItem>) {
+        let config = &app.config;
         let tasks = &mut app.projects[app.selected_project_index.selected().unwrap()].tasks;
+
+        // Get the currently selected task title before reordering
         let last_task_title_selected = tasks
             .clone()
             .get(app.selected_task_index.selected().unwrap_or(0))
-            .unwrap_or(&Task {
-                title: "".to_string(),
-                status: "".to_string(),
-                priority: 0,
-                markdown: None,
-            })
-            .clone()
-            .title;
-        let config = &app.config;
+            .map(|t| t.title.clone())
+            .unwrap_or_default();
 
-        tasks.sort_by_key(|t| {
-            TASK_STATUSES_SORT_ORDER
-                .into_iter()
-                .position(|o| o == t.status)
+        // Sort tasks by status order in config, then by priority (high to low)
+        tasks.sort_by(|a, b| {
+            let status_a_idx = config
+                .statuses
+                .iter()
+                .position(|s| s.label == a.status)
+                .unwrap_or(usize::MAX);
+            let status_b_idx = config
+                .statuses
+                .iter()
+                .position(|s| s.label == b.status)
+                .unwrap_or(usize::MAX);
+
+            match status_a_idx.cmp(&status_b_idx) {
+                std::cmp::Ordering::Equal => b.priority.cmp(&a.priority), // Higher priority first
+                other => other,
+            }
         });
-        tasks.sort_by_key(|t| TASK_PRIORITIES.into_iter().position(|o| o == t.priority));
 
         let new_index = tasks
-            .into_iter()
+            .iter()
             .position(|t| t.title == last_task_title_selected)
             .unwrap_or(0);
+
         items.clear();
 
         for task in tasks.iter() {

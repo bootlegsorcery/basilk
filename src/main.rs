@@ -43,6 +43,13 @@ pub enum ViewMode {
     DeleteTask,
 }
 
+#[derive(Default, PartialEq, Debug, Clone, Copy)]
+pub enum TaskViewMode {
+    #[default]
+    List,
+    Kanban,
+}
+
 pub struct App {
     // TODO: Better list state mgmt
     selected_project_index: ListState,
@@ -50,6 +57,7 @@ pub struct App {
     selected_status_task_index: ListState,
     selected_priority_task_index: ListState,
     view_mode: ViewMode,
+    task_view_mode: TaskViewMode,
     projects: Vec<Project>,
     config: ConfigToml,
 }
@@ -93,6 +101,7 @@ impl App {
             selected_status_task_index: ListState::default().with_selected(Some(0)),
             selected_priority_task_index: ListState::default().with_selected(Some(0)),
             view_mode: ViewMode::default(),
+            task_view_mode: TaskViewMode::default(),
             projects: Storage::read(),
             config: Config::read(),
         }
@@ -305,6 +314,13 @@ impl App {
 
                                 Task::reload(self, &mut items);
                                 input = input_clone;
+                            }
+                            Char('v') => {
+                                // Toggle between List and Kanban view
+                                self.task_view_mode = match self.task_view_mode {
+                                    TaskViewMode::List => TaskViewMode::Kanban,
+                                    TaskViewMode::Kanban => TaskViewMode::List,
+                                };
                             }
                             Down | Tab | Char('j') => {
                                 self.next(&items);
