@@ -275,15 +275,6 @@ impl View {
                 };
 
                 // Build task content
-                let mut content = task.title.clone();
-                if task.priority != 0 {
-                    content = format!(
-                        "[{}] {}",
-                        Util::get_priority_indicator(task.priority),
-                        content
-                    );
-                }
-
                 let modifier = if is_terminal {
                     Modifier::CROSSED_OUT
                 } else {
@@ -313,18 +304,29 @@ impl View {
                 let card_inner = card_block.inner(card_area);
                 f.render_widget(card_block, card_area);
 
-                // Render task text
-                let task_text = Paragraph::new(Line::from(vec![
-                    Span::styled(
-                        if is_currently_selected {
-                            "> ".to_string()
-                        } else {
-                            "  ".to_string()
-                        },
-                        Style::default().fg(status_color),
-                    ),
-                    Span::styled(content, card_style),
-                ]));
+                // Build task text spans - priority in red
+                let mut task_spans = vec![Span::styled(
+                    if is_currently_selected {
+                        "> ".to_string()
+                    } else {
+                        "  ".to_string()
+                    },
+                    Style::default().fg(status_color),
+                )];
+
+                // Add priority indicator in red if present
+                if task.priority != 0 {
+                    task_spans.push(Span::styled(
+                        format!("[{}] ", Util::get_priority_indicator(task.priority)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Red)
+                            .add_modifier(modifier),
+                    ));
+                }
+
+                task_spans.push(Span::styled(task.title.clone(), card_style));
+
+                let task_text = Paragraph::new(Line::from(task_spans));
                 f.render_widget(task_text, card_inner);
 
                 current_y += card_height + 1; // +1 for spacing between cards
