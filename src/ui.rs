@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Widget},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
 use tui_input::Input;
@@ -55,43 +55,6 @@ impl Ui {
             Constraint::Min(0),
         ])
         .split(popup_layout[1])[1]
-    }
-
-    pub fn create_modal<W: Widget>(
-        f: &mut Frame,
-        percent_x: u16,
-        percent_y: u16,
-        area: Rect,
-        widget: W,
-    ) {
-        let area = Ui::create_rect_area(percent_x, percent_y, area);
-        f.render_widget(Clear, area); //this clears out the background
-        f.render_widget(widget, area);
-    }
-
-    pub fn create_input_modal(title: &str, f: &mut Frame, area: Rect, input: &Input) {
-        // Calculate dynamic width: 70% of terminal, with min 40 and max 80 chars
-        let popup_width = ((area.width as f32 * 0.7) as u16).clamp(40, 80);
-        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
-
-        let area = Ui::create_rect_area(percent_x, 3, area);
-
-        let width = area.width.max(3) - 3;
-        let scroll = input.visual_scroll(width as usize);
-
-        let input_widget = Paragraph::new(input.value())
-            .block(Block::default().borders(Borders::ALL).title(title))
-            .scroll((0, scroll as u16));
-
-        f.render_widget(Clear, area); //this clears out the background
-        f.render_widget(input_widget, area);
-
-        f.set_cursor(
-            // Put cursor past the end of the input text
-            area.x + ((input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
-            // Move one line down, from the border to the input line
-            area.y + 1,
-        )
     }
 
     pub fn create_question_modal(

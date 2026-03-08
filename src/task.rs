@@ -15,8 +15,6 @@ pub struct Task {
     pub markdown: Option<String>,
 }
 
-pub const TASK_STATUSES: [&str; 3] = ["UpNext", "OnGoing", "Done"];
-const TASK_STATUSES_SORT_ORDER: [&str; 3] = ["OnGoing", "UpNext", "Done"];
 pub const TASK_PRIORITIES: [u8; 4] = [1, 2, 3, 0];
 
 impl Task {
@@ -212,9 +210,5 @@ impl Task {
         let mut internal_projects = app.projects.clone();
         internal_projects[project_idx].tasks.remove(task_idx);
         Task::reload(app, items);
-    }
-
-    pub fn get_markdown_path(app: &mut App) -> std::path::PathBuf {
-        Storage::get_markdown_path(app)
     }
 }

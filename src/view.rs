@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Clear, HighlightSpacing, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Clear, HighlightSpacing, List, ListItem, Paragraph},
     Frame,
 };
 use tui_input::Input;
@@ -14,26 +14,6 @@ pub struct View {}
 impl View {
     pub fn show_new_item_modal(f: &mut Frame, area: Rect, input: &Input) {
         Ui::create_input_modal_with_tip("New", "<Enter> confirm  <Esc> cancel", f, area, input)
-    }
-
-    pub fn show_migration_info_modal(f: &mut Frame, area: Rect) {
-        // Calculate width based on content
-        let content_width = "New migrations were applied!".len();
-        let title_len = "Info".len();
-        let max_content_width = content_width.max(title_len);
-
-        // Add padding for borders
-        let popup_width = ((max_content_width + 6) as u16).clamp(30, area.width.min(70));
-        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
-
-        let widget = Paragraph::new(Text::from(vec![
-            Line::raw("New migrations were applied!"),
-            Line::raw("Check the changelog"),
-        ]))
-        .alignment(Alignment::Center)
-        .block(Block::bordered().title("Info"));
-
-        Ui::create_modal(f, percent_x, 4, area, widget)
     }
 
     pub fn show_rename_item_modal(f: &mut Frame, area: Rect, input: &Input) {
@@ -454,9 +434,6 @@ impl View {
             .constraints(constraints)
             .split(area);
 
-        // Keep track of which task index we're rendering globally
-        let mut global_task_idx: usize = 0;
-
         // Render each column
         for (_col_idx, (column_area, status_label)) in
             columns.iter().zip(status_labels.iter()).enumerate()
@@ -486,8 +463,7 @@ impl View {
 
             for task in status_tasks.iter() {
                 if current_y + card_height > inner_area.bottom() {
-                    global_task_idx += 1;
-                    continue; // Skip rendering if out of bounds, but still increment
+                    continue; // Skip rendering if out of bounds
                 }
 
                 let card_area = Rect {
@@ -531,7 +507,6 @@ impl View {
                 f.render_widget(task_text, card_inner);
 
                 current_y += card_height + 1; // +1 for spacing between cards
-                global_task_idx += 1;
             }
 
             // Fill remaining space

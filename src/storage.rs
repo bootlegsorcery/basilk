@@ -184,26 +184,6 @@ impl Storage {
         fs::remove_file(task_path).ok();
     }
 
-    pub fn get_markdown_path(app: &mut crate::App) -> PathBuf {
-        let project = &mut app.projects[app.selected_project_index.selected().unwrap()];
-        let task = &project.tasks[app.selected_task_index.selected().unwrap()];
-
-        let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(&project.title);
-
-        if !project_dir.exists() {
-            fs::create_dir_all(&project_dir).ok();
-        }
-
-        let filename = task
-            .markdown
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
-
-        project_dir.join(filename)
-    }
-
     pub fn get_task_content(app: &mut crate::App) -> String {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
