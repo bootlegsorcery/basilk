@@ -499,10 +499,65 @@ impl View {
         }
     }
 
+    pub fn show_git_commit_modal(
+        app: &mut App,
+        f: &mut Frame,
+        area: Rect,
+        input: &Input,
+        modified_files: &[String],
+    ) {
+        let height = 10u16.min(modified_files.len() as u16 + 6).max(6);
+        let area = Ui::create_centered_modal_area(50, height, area);
+
+        // Clear to make modal solid
+        f.render_widget(Clear, area);
+
+        // Build the modal content
+        let mut lines = vec![Line::from("Git Commit"), Line::from("")];
+
+        // Show modified files (limit to available space)
+        let max_files = (height as usize).saturating_sub(6);
+        for (_i, file) in modified_files.iter().take(max_files).enumerate() {
+            let display = if file.len() > area.width as usize - 6 {
+                format!("{}...", &file[..(area.width as usize - 9).min(file.len())])
+            } else {
+                file.clone()
+            };
+            lines.push(Line::from(format!("  • {}", display)));
+        }
+        if modified_files.len() > max_files {
+            lines.push(Line::from(format!(
+                "  ... and {} more",
+                modified_files.len() - max_files
+            )));
+        }
+
+        lines.push(Line::from(""));
+        lines.push(Line::from(
+            format!("> {}", input.value())
+                .chars()
+                .take(area.width as usize - 4)
+                .collect::<String>(),
+        ));
+
+        if !app.git_commit_message.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(format!("Error: {}", app.git_commit_message)));
+        }
+
+        let widget = Paragraph::new(Text::from(lines)).block(Block::bordered());
+
+        f.render_widget(widget, area);
+    }
+
     pub fn show_footer_helper(app: &mut App, f: &mut Frame, area: Rect) {
         let help_string = match app.view_mode {
             ViewMode::ViewProjects => {
-                "<Up/Down k/j> next/prev - <Enter/Right/l> go to tasks - <n> new - <r> rename - <d> delete - <q> quit"
+                if app.is_git_repo && app.git_has_changes {
+                    "<Up/Down k/j> next/prev - <Enter/Right/l> go to tasks - <n> new - <r> rename - <d> delete - <c> commit - <q> quit"
+                } else {
+                    "<Up/Down k/j> next/prev - <Enter/Right/l> go to tasks - <n> new - <r> rename - <d> delete - <q> quit"
+                }
             }
             ViewMode::RenameProject => "<Enter> confirm - <Esc> cancel",
             ViewMode::AddProject => "<Enter> confirm - <Esc> cancel",
@@ -516,6 +571,7 @@ impl View {
             ViewMode::ChangePriorityTask => "<Up/Down k/j> next/prev - <Enter> confirm - <Esc> cancel",
             ViewMode::AddTask => "<Enter> confirm - <Esc> cancel",
             ViewMode::DeleteTask => "<y> confirm - <n> cancel",
+            ViewMode::GitCommit => "<Enter> commit - <Esc> cancel",
         };
 
         f.render_widget(

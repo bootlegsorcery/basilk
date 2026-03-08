@@ -14,6 +14,7 @@ use tui_input::{backend::crossterm::EventHandler, Input};
 
 mod cli;
 mod config;
+mod git;
 mod project;
 mod storage;
 mod task;
@@ -22,6 +23,7 @@ mod util;
 mod view;
 
 use config::{Config, ConfigToml};
+use git::Git;
 use project::Project;
 use storage::Storage;
 use task::{Task, TASK_PRIORITIES};
@@ -34,6 +36,7 @@ pub enum ViewMode {
     RenameProject,
     AddProject,
     DeleteProject,
+    GitCommit,
 
     ViewTasks,
     RenameTask,
@@ -60,6 +63,9 @@ pub struct App {
     task_view_mode: TaskViewMode,
     projects: Vec<Project>,
     config: ConfigToml,
+    is_git_repo: bool,
+    git_has_changes: bool,
+    git_commit_message: String,
 }
 
 fn init_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<dyn Error>> {
@@ -95,6 +101,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 impl App {
     fn setup() -> Self {
+        let is_git_repo = Git::is_git_repo();
+        let git_has_changes = if is_git_repo {
+            Git::has_changes()
+        } else {
+            false
+        };
+
         Self {
             selected_project_index: ListState::default().with_selected(Some(0)),
             selected_task_index: ListState::default().with_selected(Some(0)),
@@ -104,6 +117,9 @@ impl App {
             task_view_mode: TaskViewMode::default(),
             projects: Storage::read(),
             config: Config::read(),
+            is_git_repo,
+            git_has_changes,
+            git_commit_message: String::new(),
         }
     }
 
@@ -166,6 +182,12 @@ impl App {
 
                                 App::change_view(self, ViewMode::DeleteProject);
                             }
+                            Char('c') => {
+                                if self.is_git_repo && self.git_has_changes {
+                                    input.reset();
+                                    App::change_view(self, ViewMode::GitCommit);
+                                }
+                            }
                             Down | Tab | Char('j') => {
                                 self.next(&items);
                             }
@@ -219,6 +241,31 @@ impl App {
                                 App::change_view(self, ViewMode::ViewProjects);
                             }
                             _ => {}
+                        },
+                        ViewMode::GitCommit => match key.code {
+                            Enter => {
+                                if !input.value().is_empty() {
+                                    match Git::commit_all(input.value()) {
+                                        Ok(()) => {
+                                            self.git_has_changes = Git::has_changes();
+                                            self.git_commit_message.clear();
+                                        }
+                                        Err(e) => {
+                                            self.git_commit_message = e;
+                                        }
+                                    }
+                                }
+                                input.reset();
+                                App::change_view(self, ViewMode::ViewProjects);
+                            }
+                            Esc => {
+                                input.reset();
+                                self.git_commit_message.clear();
+                                App::change_view(self, ViewMode::ViewProjects);
+                            }
+                            _ => {
+                                input.handle_event(&Event::Key(key));
+                            }
                         },
 
                         ViewMode::ViewTasks => match key.code {
@@ -484,6 +531,15 @@ impl App {
             View::show_select_task_priority_modal(self, priority_items, f, area)
         }
 
+        if self.view_mode == ViewMode::GitCommit {
+            let modified_files = if self.is_git_repo && self.git_has_changes {
+                Git::get_modified_files()
+            } else {
+                Vec::new()
+            };
+            View::show_git_commit_modal(self, f, area, input, &modified_files)
+        }
+
         if self.config.ui.show_help {
             View::show_footer_helper(self, f, footer_area)
         }
@@ -525,6 +581,7 @@ impl App {
             ViewMode::RenameProject => return &mut self.selected_project_index,
             ViewMode::AddProject => return &mut self.selected_project_index,
             ViewMode::DeleteProject => return &mut self.selected_project_index,
+            ViewMode::GitCommit => return &mut self.selected_project_index,
 
             ViewMode::ViewTasks => return &mut self.selected_task_index,
             ViewMode::RenameTask => return &mut self.selected_task_index,
