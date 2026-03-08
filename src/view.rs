@@ -61,7 +61,10 @@ impl View {
             .highlight_spacing(HighlightSpacing::Always)
             .block(Block::bordered().title("Status"));
 
-        f.render_widget(Clear, area);
+        // Only clear if we're in list view mode - kanban should show modal over the cards
+        if app.task_view_mode == crate::TaskViewMode::List {
+            f.render_widget(Clear, area);
+        }
         f.render_stateful_widget(task_status_list_widget, area, app.use_state())
     }
 
@@ -79,7 +82,10 @@ impl View {
             .highlight_spacing(HighlightSpacing::Always)
             .block(Block::bordered().title("Priority"));
 
-        f.render_widget(Clear, area);
+        // Only clear if we're in list view mode - kanban should show modal over the cards
+        if app.task_view_mode == crate::TaskViewMode::List {
+            f.render_widget(Clear, area);
+        }
         f.render_stateful_widget(task_status_list_widget, area, app.use_state())
     }
 
@@ -109,14 +115,17 @@ impl View {
             } else {
                 f.render_stateful_widget(list, area, app.use_state());
             }
-        } else {
-            if app.view_mode == ViewMode::ChangeStatusTask
-                || app.view_mode == ViewMode::ChangePriorityTask
-            {
-                f.render_widget(list, area)
+        } else if app.view_mode == ViewMode::ChangeStatusTask
+            || app.view_mode == ViewMode::ChangePriorityTask
+        {
+            // Render the appropriate background based on task_view_mode before showing modal
+            if app.task_view_mode == crate::TaskViewMode::Kanban {
+                View::render_task_cards(app, f, area);
             } else {
                 f.render_stateful_widget(list, area, app.use_state());
             }
+        } else {
+            f.render_stateful_widget(list, area, app.use_state());
         }
     }
 
