@@ -550,34 +550,58 @@ impl View {
         f.render_widget(widget, area);
     }
 
-    pub fn show_footer_helper(app: &mut App, f: &mut Frame, area: Rect) {
-        let help_string = match app.view_mode {
-            ViewMode::ViewProjects => {
-                if app.is_git_repo && app.git_has_changes {
-                    "<Up/Down k/j> next/prev - <Enter/Right/l> go to tasks - <n> new - <r> rename - <d> delete - <c> commit - <q> quit"
-                } else {
-                    "<Up/Down k/j> next/prev - <Enter/Right/l> go to tasks - <n> new - <r> rename - <d> delete - <q> quit"
-                }
-            }
-            ViewMode::RenameProject => "<Enter> confirm - <Esc> cancel",
-            ViewMode::AddProject => "<Enter> confirm - <Esc> cancel",
-            ViewMode::DeleteProject => "<y> confirm - <n> cancel",
+    pub fn show_help_modal(app: &mut App, f: &mut Frame, area: Rect) {
+        let height = 18u16;
+        let area = Ui::create_centered_modal_area(60, height, area);
 
-            ViewMode::ViewTasks => {
-                "<Up/Down k/j> next/prev - <Esc/Left/h> go to projects - <Enter> change status - <p> change priority - <n> new - <r> rename - <d> delete - <e> edit notes - <v> toggle view - <q> quit"
-            }
-            ViewMode::RenameTask => "<Enter> confirm - <Esc> cancel",
-            ViewMode::ChangeStatusTask => "<Up/Down k/j> next/prev - <Enter> confirm - <Esc> cancel",
-            ViewMode::ChangePriorityTask => "<Up/Down k/j> next/prev - <Enter> confirm - <Esc> cancel",
-            ViewMode::AddTask => "<Enter> confirm - <Esc> cancel",
-            ViewMode::DeleteTask => "<y> confirm - <n> cancel",
-            ViewMode::GitCommit => "<Enter> commit - <Esc> cancel",
-        };
+        // Clear to make modal solid
+        f.render_widget(Clear, area);
+
+        let mut lines = vec![
+            Line::from("Help").alignment(Alignment::Center),
+            Line::from(""),
+            Line::from("Navigation:"),
+            Line::from("  <Up/Down> or <k/j>    - Move up/down"),
+            Line::from("  <Tab>                 - Next item"),
+            Line::from("  <Enter>               - Select/confirm"),
+            Line::from("  <Esc>                 - Cancel/back"),
+            Line::from(""),
+            Line::from("Projects:"),
+            Line::from("  <n>                   - New project"),
+            Line::from("  <r>                   - Rename project"),
+            Line::from("  <d>                   - Delete project"),
+        ];
+
+        if app.is_git_repo {
+            lines.push(Line::from("  <c>                   - Git commit"));
+        }
+
+        lines.extend_from_slice(&[
+            Line::from(""),
+            Line::from("Tasks:"),
+            Line::from("  <n>                   - New task"),
+            Line::from("  <r>                   - Rename task"),
+            Line::from("  <d>                   - Delete task"),
+            Line::from("  <e>                   - Edit notes"),
+            Line::from("  <v>                   - Toggle view"),
+            Line::from("  <Enter>               - Change status"),
+            Line::from("  <p>                   - Change priority"),
+            Line::from(""),
+            Line::from("General:"),
+            Line::from("  <q>                   - Quit"),
+            Line::from("  <?>                   - Toggle this help"),
+        ]);
+
+        let widget = Paragraph::new(Text::from(lines)).block(Block::bordered());
+
+        f.render_widget(widget, area);
+    }
+
+    pub fn show_footer_helper(_app: &mut App, f: &mut Frame, area: Rect) {
+        let help_string = "<?> help | <q> quit";
 
         f.render_widget(
-            Paragraph::new(help_string)
-                .wrap(Wrap { trim: true })
-                .alignment(Alignment::Center),
+            Paragraph::new(help_string).alignment(Alignment::Center),
             area,
         );
     }

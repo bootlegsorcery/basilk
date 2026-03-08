@@ -37,6 +37,7 @@ pub enum ViewMode {
     AddProject,
     DeleteProject,
     GitCommit,
+    Help,
 
     ViewTasks,
     RenameTask,
@@ -196,6 +197,15 @@ impl App {
                             }
                             Char('q') => {
                                 return Ok(());
+                            }
+                            Char('?') => {
+                                App::change_view(self, ViewMode::Help);
+                            }
+                            _ => {}
+                        },
+                        ViewMode::Help => match key.code {
+                            Esc | Char('q') | Char('?') => {
+                                App::change_view(self, ViewMode::ViewProjects);
                             }
                             _ => {}
                         },
@@ -540,9 +550,12 @@ impl App {
             View::show_git_commit_modal(self, f, area, input, &modified_files)
         }
 
-        if self.config.ui.show_help {
-            View::show_footer_helper(self, f, footer_area)
+        if self.view_mode == ViewMode::Help {
+            View::show_help_modal(self, f, area)
         }
+
+        // Always show minimal footer
+        View::show_footer_helper(self, f, footer_area)
     }
 
     fn next(&mut self, items: &Vec<ListItem>) -> () {
@@ -589,6 +602,7 @@ impl App {
             ViewMode::ChangePriorityTask => return &mut self.selected_priority_task_index,
             ViewMode::AddTask => return &mut self.selected_task_index,
             ViewMode::DeleteTask => return &mut self.selected_task_index,
+            ViewMode::Help => return &mut self.selected_project_index,
         };
     }
 
