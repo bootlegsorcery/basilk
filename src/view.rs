@@ -606,11 +606,11 @@ impl View {
 
         // Build lines first to calculate final dimensions
         let mut lines = vec![
-            Line::from("Help"),
+            Line::from("Help").alignment(Alignment::Center),
             Line::from(""),
             Line::from("Navigation:"),
             Line::from("  <Up/Down> or <k/j>    - Move up/down"),
-            Line::from("  <Tab/BackTab>         - Next/previous"),
+            Line::from("  <Left/Right> or <h/l> - Move left/right"),
         ];
 
         // Show relevant shortcuts based on current view mode
