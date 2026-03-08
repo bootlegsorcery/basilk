@@ -13,22 +13,31 @@ pub struct View {}
 
 impl View {
     pub fn show_new_item_modal(f: &mut Frame, area: Rect, input: &Input) {
-        Ui::create_input_modal("New", f, area, input)
+        Ui::create_input_modal_with_tip("New", "<Enter> confirm  <Esc> cancel", f, area, input)
     }
 
     pub fn show_migration_info_modal(f: &mut Frame, area: Rect) {
+        // Calculate width based on content
+        let content_width = "New migrations were applied!".len();
+        let title_len = "Info".len();
+        let max_content_width = content_width.max(title_len);
+
+        // Add padding for borders
+        let popup_width = ((max_content_width + 6) as u16).clamp(30, area.width.min(70));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
         let widget = Paragraph::new(Text::from(vec![
             Line::raw("New migrations were applied!"),
             Line::raw("Check the changelog"),
         ]))
         .alignment(Alignment::Center)
-        .block(Block::bordered());
+        .block(Block::bordered().title("Info"));
 
-        Ui::create_modal(f, 30, 4, area, widget)
+        Ui::create_modal(f, percent_x, 4, area, widget)
     }
 
     pub fn show_rename_item_modal(f: &mut Frame, area: Rect, input: &Input) {
-        Ui::create_input_modal("Rename", f, area, input)
+        Ui::create_input_modal_with_tip("Rename", "<Enter> confirm  <Esc> cancel", f, area, input)
     }
 
     pub fn show_delete_item_modal(app: &mut App, f: &mut Frame, area: Rect) {
@@ -42,6 +51,7 @@ impl View {
             "Are you sure to delete?",
             format!("\"{}\"", title).as_str(),
             "Delete",
+            Some("<y> confirm  <n> cancel"),
             f,
             area,
         )
@@ -59,7 +69,7 @@ impl View {
         // Cap height at 6 (4 items + 2 borders), or less if fewer items
         let modal_height = (total_items as u16 + 2).min(6);
 
-        // Width based on content
+        // Width based on content - find the longest status label
         let max_label_len = app
             .config
             .statuses
@@ -67,9 +77,13 @@ impl View {
             .map(|s| s.label.len())
             .max()
             .unwrap_or(10);
-        let content_width = (max_label_len + 8) as u16; // +8 for borders, padding, and scroll indicators
-        let percent_x =
-            ((content_width as f32 / area.width as f32) * 100.0).clamp(20.0, 50.0) as u16;
+        // Add space for highlight symbol ("> "), borders, and padding
+        let content_width = (max_label_len + 6) as u16;
+        let title_width = 10u16; // "X/Y" with indicators
+        let max_content_width = content_width.max(title_width);
+
+        let popup_width = (max_content_width + 4).clamp(20, area.width.min(50));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
 
         // Use fixed height and center vertically
         let area = Ui::create_centered_modal_area(percent_x, modal_height, area);
@@ -111,19 +125,53 @@ impl View {
         f: &mut Frame,
         area: Rect,
     ) {
-        let area = Ui::create_rect_area(10, 6, area);
+        let selected_idx = app.selected_priority_task_index.selected().unwrap_or(0);
+        let total_items = priority_items.len();
 
-        let task_status_list_widget = List::new(priority_items.clone())
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        // Cap height at 8 (6 items + 2 borders), or less if fewer items
+        let modal_height = (total_items as u16 + 2).min(8);
+
+        // Width based on content - find the longest priority label
+        let max_label_len = 15; // Priority labels are short
+        let content_width = (max_label_len + 6) as u16; // +6 for highlight symbol, borders, and padding
+        let title_width = 10u16; // "X/Y" with indicators
+        let max_content_width = content_width.max(title_width);
+
+        let popup_width = (max_content_width + 4).clamp(20, area.width.min(50));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        // Use fixed height and center vertically
+        let area = Ui::create_centered_modal_area(percent_x, modal_height, area);
+
+        // Always clear to make modal solid
+        f.render_widget(Clear, area);
+
+        // Build title with scroll indicator on left side
+        let scroll_indicator = if selected_idx > 0 { "▲ " } else { "  " };
+        let more_indicator = if selected_idx < total_items - 1 {
+            " ▼"
+        } else {
+            "  "
+        };
+        let title = format!(
+            "{}{}/{}{}",
+            scroll_indicator,
+            selected_idx + 1,
+            total_items,
+            more_indicator
+        );
+
+        let task_priority_list_widget = List::new(priority_items.clone())
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED),
+            )
             .highlight_symbol("> ")
             .highlight_spacing(HighlightSpacing::Always)
-            .block(Block::bordered().title("Priority"));
+            .block(Block::bordered().title(title));
 
-        // Only clear if we're in list view mode - kanban should show modal over the cards
-        if app.task_view_mode == crate::TaskViewMode::List {
-            f.render_widget(Clear, area);
-        }
-        f.render_stateful_widget(task_status_list_widget, area, app.use_state())
+        f.render_stateful_widget(task_priority_list_widget, area, app.use_state())
     }
 
     pub fn show_items(app: &mut App, items: &Vec<ListItem>, f: &mut Frame, area: Rect) {
@@ -506,8 +554,22 @@ impl View {
         input: &Input,
         modified_files: &[String],
     ) {
-        let height = 10u16.min(modified_files.len() as u16 + 6).max(6);
-        let area = Ui::create_centered_modal_area(50, height, area);
+        // Calculate width based on content
+        let max_file_len = modified_files.iter().map(|f| f.len()).max().unwrap_or(0);
+        let title_len = "Git Commit".len();
+        let input_len = input.value().len();
+        let max_content_width = max_file_len.max(title_len).max(input_len).max(25);
+
+        // Add padding for borders and content
+        let popup_width = ((max_content_width + 8) as u16).clamp(40, area.width.min(90));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        // Height based on files + header + input + tip
+        let base_height = 5u16; // header + separator + input + tip + padding
+        let file_height = modified_files.len() as u16 + 1; // files + potential "more" line
+        let height = (base_height + file_height).min(16).max(8);
+
+        let area = Ui::create_centered_modal_area(percent_x, height, area);
 
         // Clear to make modal solid
         f.render_widget(Clear, area);
@@ -516,7 +578,7 @@ impl View {
         let mut lines = vec![Line::from("Git Commit"), Line::from("")];
 
         // Show modified files (limit to available space)
-        let max_files = (height as usize).saturating_sub(6);
+        let max_files = (height as usize).saturating_sub(7);
         for (_i, file) in modified_files.iter().take(max_files).enumerate() {
             let display = if file.len() > area.width as usize - 6 {
                 format!("{}...", &file[..(area.width as usize - 9).min(file.len())])
@@ -548,49 +610,92 @@ impl View {
         let widget = Paragraph::new(Text::from(lines)).block(Block::bordered());
 
         f.render_widget(widget, area);
+
+        // Render tip at the bottom
+        let tip_area = Rect {
+            x: area.x + 1,
+            y: area.y + area.height - 2,
+            width: area.width - 2,
+            height: 1,
+        };
+        f.render_widget(
+            Paragraph::new("<Enter> commit  <Esc> cancel")
+                .alignment(Alignment::Center)
+                .style(Style::default().add_modifier(Modifier::DIM)),
+            tip_area,
+        );
     }
 
     pub fn show_help_modal(app: &mut App, f: &mut Frame, area: Rect) {
-        let height = 18u16;
-        let area = Ui::create_centered_modal_area(60, height, area);
+        use crate::ViewMode;
 
-        // Clear to make modal solid
-        f.render_widget(Clear, area);
-
+        // Build lines first to calculate final dimensions
         let mut lines = vec![
-            Line::from("Help").alignment(Alignment::Center),
+            Line::from("Help"),
             Line::from(""),
             Line::from("Navigation:"),
             Line::from("  <Up/Down> or <k/j>    - Move up/down"),
-            Line::from("  <Tab>                 - Next item"),
-            Line::from("  <Enter>               - Select/confirm"),
-            Line::from("  <Esc>                 - Cancel/back"),
-            Line::from(""),
-            Line::from("Projects:"),
-            Line::from("  <n>                   - New project"),
-            Line::from("  <r>                   - Rename project"),
-            Line::from("  <d>                   - Delete project"),
+            Line::from("  <Tab/BackTab>         - Next/previous"),
         ];
 
-        if app.is_git_repo {
-            lines.push(Line::from("  <c>                   - Git commit"));
+        // Show relevant shortcuts based on current view mode
+        match app.view_mode {
+            ViewMode::ViewProjects
+            | ViewMode::AddProject
+            | ViewMode::RenameProject
+            | ViewMode::DeleteProject => {
+                lines.push(Line::from(""));
+                lines.push(Line::from("Projects:"));
+                lines.push(Line::from("  <Enter>,>,l          - Open project tasks"));
+                lines.push(Line::from("  <n>                   - New project"));
+                lines.push(Line::from("  <r>                   - Rename project"));
+                lines.push(Line::from("  <d>                   - Delete project"));
+                if app.is_git_repo && app.git_has_changes {
+                    lines.push(Line::from("  <c>                   - Git commit"));
+                }
+            }
+            ViewMode::ViewTasks
+            | ViewMode::AddTask
+            | ViewMode::RenameTask
+            | ViewMode::DeleteTask
+            | ViewMode::ChangeStatusTask
+            | ViewMode::ChangePriorityTask => {
+                lines.push(Line::from(""));
+                lines.push(Line::from("Tasks:"));
+                lines.push(Line::from("  <Esc>,<h>             - Back to projects"));
+                lines.push(Line::from("  <Enter>               - Change task status"));
+                lines.push(Line::from("  <p>                   - Change priority"));
+                lines.push(Line::from("  <n>                   - New task"));
+                lines.push(Line::from("  <r>                   - Rename task"));
+                lines.push(Line::from("  <d>                   - Delete task"));
+                lines.push(Line::from("  <e>                   - Edit notes"));
+                lines.push(Line::from("  <v>                   - Toggle view"));
+            }
+            ViewMode::GitCommit => {
+                lines.push(Line::from(""));
+                lines.push(Line::from("Git Commit:"));
+                lines.push(Line::from("  <Enter>               - Commit changes"));
+            }
         }
 
-        lines.extend_from_slice(&[
-            Line::from(""),
-            Line::from("Tasks:"),
-            Line::from("  <n>                   - New task"),
-            Line::from("  <r>                   - Rename task"),
-            Line::from("  <d>                   - Delete task"),
-            Line::from("  <e>                   - Edit notes"),
-            Line::from("  <v>                   - Toggle view"),
-            Line::from("  <Enter>               - Change status"),
-            Line::from("  <p>                   - Change priority"),
-            Line::from(""),
-            Line::from("General:"),
-            Line::from("  <q>                   - Quit"),
-            Line::from("  <?>                   - Toggle this help"),
-        ]);
+        lines.push(Line::from(""));
+        lines.push(Line::from("General:"));
+        lines.push(Line::from("  <q>                   - Quit"));
+        lines.push(Line::from("  <?>                   - Toggle this help"));
+
+        // Calculate max width based on actual content
+        let max_content_width = lines.iter().map(|line| line.width()).max().unwrap_or(30) as u16;
+
+        // Add padding for borders and center alignment
+        let popup_width = (max_content_width + 4).clamp(35, area.width.min(80));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        // Calculate height based on actual line count + borders
+        let height = lines.len() as u16 + 2; // +2 for borders
+
+        // Create the modal area with final dimensions
+        let area = Ui::create_centered_modal_area(percent_x, height, area);
+        f.render_widget(Clear, area);
 
         let widget = Paragraph::new(Text::from(lines)).block(Block::bordered());
 
