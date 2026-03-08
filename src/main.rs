@@ -388,6 +388,9 @@ impl App {
                             Char('q') => {
                                 return Ok(());
                             }
+                            Char('?') => {
+                                App::change_view(self, ViewMode::Help);
+                            }
                             _ => {}
                         },
                         ViewMode::RenameTask => match key.code {
