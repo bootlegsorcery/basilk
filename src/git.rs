@@ -2,6 +2,8 @@ use std::process::Command;
 
 pub struct Git;
 
+const BASILK_DIR: &str = ".basilk";
+
 impl Git {
     /// Check if the current directory is inside a git repository
     pub fn is_git_repo() -> bool {
@@ -12,10 +14,10 @@ impl Git {
             .unwrap_or(false)
     }
 
-    /// Get list of modified files that aren't gitignored
+    /// Get list of modified files in .basilk that aren't gitignored
     pub fn get_modified_files() -> Vec<String> {
         let output = Command::new("git")
-            .args(["status", "--porcelain", "--untracked-files=all"])
+            .args(["status", "--porcelain", "--untracked-files=all", BASILK_DIR])
             .output();
 
         match output {
@@ -38,16 +40,16 @@ impl Git {
         }
     }
 
-    /// Check if there are any changes to commit
+    /// Check if there are any changes to commit in .basilk
     pub fn has_changes() -> bool {
         !Self::get_modified_files().is_empty()
     }
 
-    /// Stage all changes and commit with the given message
+    /// Stage changes in .basilk and commit with the given message
     pub fn commit_all(message: &str) -> Result<(), String> {
-        // First, add all changes
+        // First, add only .basilk changes
         let add_output = Command::new("git")
-            .args(["add", "-A"])
+            .args(["add", BASILK_DIR])
             .output()
             .map_err(|e| format!("Failed to run git add: {}", e))?;
 
