@@ -17,6 +17,8 @@ static DIR_CONFIG_NAME: &str = ".basilk";
 pub struct TaskMetadata {
     pub status: String,
     pub priority: u8,
+    pub cost: u8,
+    pub time: u8,
 }
 
 pub struct Storage;
@@ -85,6 +87,8 @@ impl Storage {
 
         let mut status = default_status.to_string();
         let mut priority = 0u8;
+        let mut cost = 0u8;
+        let mut time = 0u8;
 
         if let Some(frontmatter) = content
             .strip_prefix("---")
@@ -93,6 +97,8 @@ impl Storage {
             if let Ok(metadata) = serde_yaml::from_str::<TaskMetadata>(frontmatter.0.trim()) {
                 status = metadata.status;
                 priority = metadata.priority;
+                cost = metadata.cost;
+                time = metadata.time;
             }
         }
 
@@ -100,6 +106,8 @@ impl Storage {
             title,
             status,
             priority,
+            cost,
+            time,
             markdown: Some(path.file_name().unwrap().to_string_lossy().to_string()),
         })
     }
@@ -125,8 +133,8 @@ impl Storage {
         let task_path = project_dir.join(&task_filename);
 
         let front_matter = format!(
-            "---\nstatus: {}\npriority: {}\n---\n\n",
-            task.status, task.priority
+            "---\nstatus: {}\npriority: {}\ncost: {}\ntime: {}\n---\n\n",
+            task.status, task.priority, task.cost, task.time
         );
 
         let existing_content = fs::read_to_string(&task_path)
@@ -176,7 +184,7 @@ impl Storage {
         let task_path = project_dir.join(&filename);
 
         let content = format!(
-            "---\nstatus: {}\npriority: 0\n---\n\n# {}\n",
+            "---\nstatus: {}\npriority: 0\ncost: 0\ntime: 0\n---\n\n# {}\n",
             origin_status, task_title
         );
 
@@ -241,8 +249,8 @@ impl Storage {
         let task_path = project_dir.join(&task_filename);
 
         let front_matter = format!(
-            "---\nstatus: {}\npriority: {}\n---\n\n",
-            task.status, task.priority
+            "---\nstatus: {}\npriority: {}\ncost: {}\ntime: {}\n---\n\n",
+            task.status, task.priority, task.cost, task.time
         );
 
         let full_content = format!("{}{}", front_matter, content);

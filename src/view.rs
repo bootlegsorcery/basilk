@@ -154,6 +154,116 @@ impl View {
         f.render_stateful_widget(task_priority_list_widget, area, app.use_state())
     }
 
+    pub fn show_select_task_cost_modal(
+        app: &mut App,
+        cost_items: &Vec<ListItem>,
+        f: &mut Frame,
+        area: Rect,
+    ) {
+        let selected_idx = app.selected_cost_task_index.selected().unwrap_or(0);
+        let total_items = cost_items.len();
+
+        // Cap height at 8 (6 items + 2 borders), or less if fewer items
+        let modal_height = (total_items as u16 + 2).min(8);
+
+        // Width based on content - find the longest cost label
+        let max_label_len = 15; // Cost labels are short
+        let content_width = (max_label_len + 6) as u16; // +6 for highlight symbol, borders, and padding
+        let title_width = 10u16; // "X/Y" with indicators
+        let max_content_width = content_width.max(title_width);
+
+        let popup_width = (max_content_width + 4).clamp(20, area.width.min(50));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        // Use fixed height and center vertically
+        let area = Ui::create_centered_modal_area(percent_x, modal_height, area);
+
+        // Always clear to make modal solid
+        f.render_widget(Clear, area);
+
+        // Build title with scroll indicator on left side
+        let scroll_indicator = if selected_idx > 0 { "▲ " } else { "  " };
+        let more_indicator = if selected_idx < total_items - 1 {
+            " ▼"
+        } else {
+            "  "
+        };
+        let title = format!(
+            "{}{}/{}{}",
+            scroll_indicator,
+            selected_idx + 1,
+            total_items,
+            more_indicator
+        );
+
+        let task_cost_list_widget = List::new(cost_items.clone())
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED),
+            )
+            .highlight_symbol("> ")
+            .highlight_spacing(HighlightSpacing::Always)
+            .block(Block::bordered().title(title));
+
+        f.render_stateful_widget(task_cost_list_widget, area, app.use_state())
+    }
+
+    pub fn show_select_task_time_modal(
+        app: &mut App,
+        time_items: &Vec<ListItem>,
+        f: &mut Frame,
+        area: Rect,
+    ) {
+        let selected_idx = app.selected_time_task_index.selected().unwrap_or(0);
+        let total_items = time_items.len();
+
+        // Cap height at 8 (6 items + 2 borders), or less if fewer items
+        let modal_height = (total_items as u16 + 2).min(8);
+
+        // Width based on content - find the longest time label
+        let max_label_len = 15; // Time labels are short
+        let content_width = (max_label_len + 6) as u16; // +6 for highlight symbol, borders, and padding
+        let title_width = 10u16; // "X/Y" with indicators
+        let max_content_width = content_width.max(title_width);
+
+        let popup_width = (max_content_width + 4).clamp(20, area.width.min(50));
+        let percent_x = ((popup_width as f32 / area.width as f32) * 100.0) as u16;
+
+        // Use fixed height and center vertically
+        let area = Ui::create_centered_modal_area(percent_x, modal_height, area);
+
+        // Always clear to make modal solid
+        f.render_widget(Clear, area);
+
+        // Build title with scroll indicator on left side
+        let scroll_indicator = if selected_idx > 0 { "▲ " } else { "  " };
+        let more_indicator = if selected_idx < total_items - 1 {
+            " ▼"
+        } else {
+            "  "
+        };
+        let title = format!(
+            "{}{}/{}{}",
+            scroll_indicator,
+            selected_idx + 1,
+            total_items,
+            more_indicator
+        );
+
+        let task_time_list_widget = List::new(time_items.clone())
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED),
+            )
+            .highlight_symbol("> ")
+            .highlight_spacing(HighlightSpacing::Always)
+            .block(Block::bordered().title(title));
+
+        f.render_stateful_widget(task_time_list_widget, area, app.use_state())
+    }
+
     pub fn show_items(app: &mut App, items: &Vec<ListItem>, f: &mut Frame, area: Rect) {
         let block: Block = match app.view_mode {
             ViewMode::ViewProjects
@@ -182,6 +292,8 @@ impl View {
             }
         } else if app.view_mode == ViewMode::ChangeStatusTask
             || app.view_mode == ViewMode::ChangePriorityTask
+            || app.view_mode == ViewMode::ChangeCostTask
+            || app.view_mode == ViewMode::ChangeTimeTask
         {
             // Render the appropriate background based on task_view_mode before showing modal
             // Use non-stateful render for background since modal takes focus
@@ -306,12 +418,10 @@ impl View {
                 };
 
                 // Calculate card height based on content
-                // Base: 1 line for title, +1 line for priority if present
+                // Base: 1 line for title, +1 line for indicators if any present
                 // + 2 for borders (top and bottom)
-                let mut content_lines = 2u16; // title + priority line
-                if task.priority == 0 {
-                    content_lines = 1; // title only
-                }
+                let has_indicators = task.priority != 0 || task.cost != 0 || task.time != 0;
+                let content_lines = if has_indicators { 2u16 } else { 1u16 };
                 let card_height = content_lines + 2; // +2 for borders
 
                 if current_y + card_height > inner_area.bottom() {
@@ -340,7 +450,7 @@ impl View {
                 let card_inner = card_block.inner(card_area);
                 f.render_widget(card_block, card_area);
 
-                // Build task text with title at top and priority at bottom
+                // Build task text with title at top and indicators at bottom
                 let selection_prefix = if is_currently_selected {
                     "> ".to_string()
                 } else {
@@ -353,16 +463,43 @@ impl View {
                     Span::styled(task.title.clone(), card_style),
                 ]);
 
-                // Bottom line: priority indicator (no selection prefix)
+                // Build lines for indicators - combine on one line when possible
                 let mut lines = vec![title_line];
+                let mut indicator_spans: Vec<Span> = vec![];
+
                 if task.priority != 0 {
-                    let priority_line = Line::from(vec![Span::styled(
-                        format!("  [{}]", Util::get_priority_indicator(task.priority)),
+                    indicator_spans.push(Span::styled(
+                        Util::get_priority_indicator(task.priority),
                         Style::default()
                             .fg(ratatui::style::Color::Red)
                             .add_modifier(modifier),
-                    )]);
-                    lines.push(priority_line);
+                    ));
+                }
+                if task.cost != 0 {
+                    if !indicator_spans.is_empty() {
+                        indicator_spans.push(Span::raw(" "));
+                    }
+                    indicator_spans.push(Span::styled(
+                        format!("[{}]", Util::get_cost_indicator(task.cost)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Green)
+                            .add_modifier(modifier),
+                    ));
+                }
+                if task.time != 0 {
+                    if !indicator_spans.is_empty() {
+                        indicator_spans.push(Span::raw(" "));
+                    }
+                    indicator_spans.push(Span::styled(
+                        format!("[{}]", Util::get_time_indicator(task.time)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Blue)
+                            .add_modifier(modifier),
+                    ));
+                }
+
+                if !indicator_spans.is_empty() {
+                    lines.push(Line::from(indicator_spans));
                 }
 
                 let task_text = Paragraph::new(lines);
@@ -481,12 +618,10 @@ impl View {
                 let card_style = Style::default().add_modifier(modifier);
 
                 // Calculate card height based on content
-                // Base: 1 line for title, +1 line for priority if present
+                // Base: 1 line for title, +1 line for indicators if any present
                 // + 2 for borders (top and bottom)
-                let mut content_lines = 2u16; // title + priority line
-                if task.priority == 0 {
-                    content_lines = 1; // title only
-                }
+                let has_indicators = task.priority != 0 || task.cost != 0 || task.time != 0;
+                let content_lines = if has_indicators { 2u16 } else { 1u16 };
                 let card_height = content_lines + 2; // +2 for borders
 
                 if current_y + card_height > inner_area.bottom() {
@@ -508,21 +643,49 @@ impl View {
                 let card_inner = card_block.inner(card_area);
                 f.render_widget(card_block, card_area);
 
-                // Render task text with title at top and priority at bottom
+                // Render task text with title at top and indicators at bottom
                 let title_line = Line::from(vec![
                     Span::styled("  ", Style::default()),
                     Span::styled(task.title.clone(), card_style),
                 ]);
 
+                // Build lines for indicators - combine on one line when possible
                 let mut lines = vec![title_line];
+                let mut indicator_spans: Vec<Span> = vec![];
+
                 if task.priority != 0 {
-                    let priority_line = Line::from(vec![Span::styled(
-                        format!("  [{}]", Util::get_priority_indicator(task.priority)),
+                    indicator_spans.push(Span::styled(
+                        Util::get_priority_indicator(task.priority),
                         Style::default()
                             .fg(ratatui::style::Color::Red)
                             .add_modifier(modifier),
-                    )]);
-                    lines.push(priority_line);
+                    ));
+                }
+                if task.cost != 0 {
+                    if !indicator_spans.is_empty() {
+                        indicator_spans.push(Span::raw(" "));
+                    }
+                    indicator_spans.push(Span::styled(
+                        format!("[{}]", Util::get_cost_indicator(task.cost)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Green)
+                            .add_modifier(modifier),
+                    ));
+                }
+                if task.time != 0 {
+                    if !indicator_spans.is_empty() {
+                        indicator_spans.push(Span::raw(" "));
+                    }
+                    indicator_spans.push(Span::styled(
+                        format!("[{}]", Util::get_time_indicator(task.time)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Blue)
+                            .add_modifier(modifier),
+                    ));
+                }
+
+                if !indicator_spans.is_empty() {
+                    lines.push(Line::from(indicator_spans));
                 }
 
                 let task_text = Paragraph::new(lines);
@@ -656,12 +819,16 @@ impl View {
             | ViewMode::RenameTask
             | ViewMode::DeleteTask
             | ViewMode::ChangeStatusTask
-            | ViewMode::ChangePriorityTask => {
+            | ViewMode::ChangePriorityTask
+            | ViewMode::ChangeCostTask
+            | ViewMode::ChangeTimeTask => {
                 lines.push(Line::from(""));
                 lines.push(Line::from("Tasks:"));
                 lines.push(Line::from("  <Esc>,<h>             - Back to projects"));
                 lines.push(Line::from("  <Enter>               - Change task status"));
                 lines.push(Line::from("  <p>                   - Change priority"));
+                lines.push(Line::from("  <c>                   - Change cost"));
+                lines.push(Line::from("  <t>                   - Change time"));
                 lines.push(Line::from("  <n>                   - New task"));
                 lines.push(Line::from("  <r>                   - Rename task"));
                 lines.push(Line::from("  <d>                   - Delete task"));

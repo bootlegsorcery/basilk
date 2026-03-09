@@ -1,4 +1,4 @@
-use crate::task::TASK_PRIORITIES;
+use crate::task::{TASK_COSTS, TASK_PRIORITIES, TASK_TIMES};
 
 pub struct Util;
 
@@ -106,7 +106,47 @@ impl Util {
                 .unwrap_or(0)
         };
 
-        "!!!".chars().take((priority_value).into()).collect()
+        // Get the indicator chars and pad OUTSIDE the brackets for alignment
+        // [!!!] = 5 chars, [!!] needs 1 space, [!] needs 2 spaces
+        let indicator: String = "!!!".chars().take((priority_value).into()).collect();
+        let spaces = "  ".chars().take(3 - priority_value).collect::<String>();
+        format!("[{}]{}", indicator, spaces)
+    }
+
+    pub fn get_cost_indicator(value: u8) -> String {
+        // Cost value is in ascending order
+        // cost: 1 => $$$
+        // cost: 2 => $$
+        // cost: 3 => $
+        let cost_value = if value == 0 {
+            0
+        } else {
+            TASK_COSTS
+                .into_iter()
+                .rev()
+                .position(|t| t == value)
+                .unwrap_or(0)
+        };
+
+        "$$$".chars().take((cost_value).into()).collect()
+    }
+
+    pub fn get_time_indicator(value: u8) -> String {
+        // Time value is in ascending order
+        // time: 1 => ⏲⏲⏲
+        // time: 2 => ⏲⏲
+        // time: 3 => ⏲
+        let time_value = if value == 0 {
+            0
+        } else {
+            TASK_TIMES
+                .into_iter()
+                .rev()
+                .position(|t| t == value)
+                .unwrap_or(0)
+        };
+
+        "⏲⏲⏲".chars().take((time_value).into()).collect()
     }
 }
 

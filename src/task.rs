@@ -12,10 +12,14 @@ pub struct Task {
     pub title: String,
     pub status: String,
     pub priority: u8,
+    pub cost: u8,
+    pub time: u8,
     pub markdown: Option<String>,
 }
 
 pub const TASK_PRIORITIES: [u8; 4] = [1, 2, 3, 0];
+pub const TASK_COSTS: [u8; 4] = [1, 2, 3, 0];
+pub const TASK_TIMES: [u8; 4] = [1, 2, 3, 0];
 
 impl Task {
     pub fn load_statues_items(app: &App, items: &mut Vec<ListItem>) {
@@ -32,6 +36,28 @@ impl Task {
             let span = Span::styled(
                 Util::get_priority_indicator(priority_value),
                 Style::new().fg(Color::Red),
+            );
+            items.push(ListItem::from(span));
+        }
+    }
+
+    pub fn load_cost_items(items: &mut Vec<ListItem>) {
+        items.clear();
+        for cost_value in TASK_COSTS {
+            let span = Span::styled(
+                Util::get_cost_indicator(cost_value),
+                Style::new().fg(Color::Green),
+            );
+            items.push(ListItem::from(span));
+        }
+    }
+
+    pub fn load_time_items(items: &mut Vec<ListItem>) {
+        items.clear();
+        for time_value in TASK_TIMES {
+            let span = Span::styled(
+                Util::get_time_indicator(time_value),
+                Style::new().fg(Color::Blue),
             );
             items.push(ListItem::from(span));
         }
@@ -93,20 +119,42 @@ impl Task {
                 Modifier::empty()
             };
 
-            let mut repr = vec![
-                Span::styled(
-                    format!("[{}] ", task.status),
-                    Style::default().fg(status_color).add_modifier(modifier),
-                ),
-                Span::styled(task.title.clone(), Style::default().add_modifier(modifier)),
-            ];
+            // Build priority indicator at the START (red) with padding
+            let mut repr = vec![];
 
+            // Add priority indicator at the START in red only if set
+            // get_priority_indicator now includes brackets and padding
             if task.priority != 0 {
-                let priority_repr = vec![Span::styled(
-                    format!("[{}] ", Util::get_priority_indicator(task.priority)),
+                repr.push(Span::styled(
+                    format!("{} ", Util::get_priority_indicator(task.priority)),
                     Style::new().fg(Color::Red),
-                )];
-                repr = [priority_repr, repr].concat();
+                ));
+            }
+
+            // Add status and title
+            repr.push(Span::styled(
+                format!("[{}] ", task.status),
+                Style::default().fg(status_color).add_modifier(modifier),
+            ));
+            repr.push(Span::styled(
+                task.title.clone(),
+                Style::default().add_modifier(modifier),
+            ));
+
+            // Add cost indicator (green) at the end if present
+            if task.cost != 0 {
+                repr.push(Span::styled(
+                    format!(" [{}]", Util::get_cost_indicator(task.cost)),
+                    Style::new().fg(Color::Green).add_modifier(modifier),
+                ));
+            }
+
+            // Add time indicator (blue) at the end if present
+            if task.time != 0 {
+                repr.push(Span::styled(
+                    format!(" [{}]", Util::get_time_indicator(task.time)),
+                    Style::new().fg(Color::Blue).add_modifier(modifier),
+                ));
             }
 
             items.push(ListItem::from(Line::from(repr)));
@@ -142,6 +190,8 @@ impl Task {
             title: value.to_string(),
             status: default_status,
             priority: 0,
+            cost: 0,
+            time: 0,
             markdown: Some(task_path.file_name().unwrap().to_string_lossy().to_string()),
         };
         let mut internal_projects = app.projects.clone();
@@ -188,6 +238,22 @@ impl Task {
         let project_idx = app.selected_project_index.selected().unwrap();
         let task_idx = app.selected_task_index.selected().unwrap();
         app.projects[project_idx].tasks[task_idx].priority = value;
+        Storage::write_task(app, project_idx, task_idx);
+        Task::reload(app, items);
+    }
+
+    pub fn change_cost(app: &mut App, items: &mut Vec<ListItem>, value: u8) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+        app.projects[project_idx].tasks[task_idx].cost = value;
+        Storage::write_task(app, project_idx, task_idx);
+        Task::reload(app, items);
+    }
+
+    pub fn change_time(app: &mut App, items: &mut Vec<ListItem>, value: u8) {
+        let project_idx = app.selected_project_index.selected().unwrap();
+        let task_idx = app.selected_task_index.selected().unwrap();
+        app.projects[project_idx].tasks[task_idx].time = value;
         Storage::write_task(app, project_idx, task_idx);
         Task::reload(app, items);
     }

@@ -26,7 +26,7 @@ use config::{Config, ConfigToml};
 use git::Git;
 use project::Project;
 use storage::Storage;
-use task::{Task, TASK_PRIORITIES};
+use task::{Task, TASK_COSTS, TASK_PRIORITIES, TASK_TIMES};
 use view::View;
 
 #[derive(Default, PartialEq, Debug)]
@@ -42,6 +42,8 @@ pub enum ViewMode {
     RenameTask,
     ChangeStatusTask,
     ChangePriorityTask,
+    ChangeCostTask,
+    ChangeTimeTask,
     AddTask,
     DeleteTask,
 }
@@ -59,6 +61,8 @@ pub struct App {
     selected_task_index: ListState,
     selected_status_task_index: ListState,
     selected_priority_task_index: ListState,
+    selected_cost_task_index: ListState,
+    selected_time_task_index: ListState,
     view_mode: ViewMode,
     task_view_mode: TaskViewMode,
     projects: Vec<Project>,
@@ -114,6 +118,8 @@ impl App {
             selected_task_index: ListState::default().with_selected(Some(0)),
             selected_status_task_index: ListState::default().with_selected(Some(0)),
             selected_priority_task_index: ListState::default().with_selected(Some(0)),
+            selected_cost_task_index: ListState::default().with_selected(Some(0)),
+            selected_time_task_index: ListState::default().with_selected(Some(0)),
             view_mode: ViewMode::default(),
             task_view_mode: TaskViewMode::default(),
             projects: Storage::read(),
@@ -140,9 +146,24 @@ impl App {
         let mut priority_items: Vec<ListItem> = vec![];
         Task::load_priority_items(&mut priority_items);
 
+        let mut cost_items: Vec<ListItem> = vec![];
+        Task::load_cost_items(&mut cost_items);
+
+        let mut time_items: Vec<ListItem> = vec![];
+        Task::load_time_items(&mut time_items);
+
         loop {
             terminal.draw(|f| {
-                self.render(f, f.size(), &input, &items, &status_items, &priority_items)
+                self.render(
+                    f,
+                    f.size(),
+                    &input,
+                    &items,
+                    &status_items,
+                    &priority_items,
+                    &cost_items,
+                    &time_items,
+                )
             })?;
 
             if let Event::Key(key) = event::read()? {
@@ -322,6 +343,34 @@ impl App {
 
                                 App::change_view(self, ViewMode::ChangePriorityTask);
                             }
+                            Char('c') => {
+                                if items.is_empty() {
+                                    continue;
+                                }
+
+                                let index = TASK_COSTS
+                                    .into_iter()
+                                    .position(|t| t == Task::get_current(self).cost)
+                                    .unwrap();
+
+                                self.selected_cost_task_index.select(Some(index));
+
+                                App::change_view(self, ViewMode::ChangeCostTask);
+                            }
+                            Char('t') => {
+                                if items.is_empty() {
+                                    continue;
+                                }
+
+                                let index = TASK_TIMES
+                                    .into_iter()
+                                    .position(|t| t == Task::get_current(self).time)
+                                    .unwrap();
+
+                                self.selected_time_task_index.select(Some(index));
+
+                                App::change_view(self, ViewMode::ChangeTimeTask);
+                            }
                             Char('r') => {
                                 if items.is_empty() {
                                     continue;
@@ -462,6 +511,50 @@ impl App {
                             }
                             _ => {}
                         },
+                        ViewMode::ChangeCostTask => match key.code {
+                            Enter => {
+                                Task::change_cost(
+                                    self,
+                                    &mut items,
+                                    TASK_COSTS[self.selected_cost_task_index.selected().unwrap()],
+                                );
+
+                                self.selected_cost_task_index.select(Some(0));
+                                App::change_view(self, ViewMode::ViewTasks);
+                            }
+                            Down | BackTab | Char('j') => {
+                                self.next(&priority_items);
+                            }
+                            Up | Tab | Char('k') => {
+                                self.previous(&priority_items);
+                            }
+                            Esc => {
+                                App::change_view(self, ViewMode::ViewTasks);
+                            }
+                            _ => {}
+                        },
+                        ViewMode::ChangeTimeTask => match key.code {
+                            Enter => {
+                                Task::change_time(
+                                    self,
+                                    &mut items,
+                                    TASK_TIMES[self.selected_time_task_index.selected().unwrap()],
+                                );
+
+                                self.selected_time_task_index.select(Some(0));
+                                App::change_view(self, ViewMode::ViewTasks);
+                            }
+                            Down | BackTab | Char('j') => {
+                                self.next(&priority_items);
+                            }
+                            Up | Tab | Char('k') => {
+                                self.previous(&priority_items);
+                            }
+                            Esc => {
+                                App::change_view(self, ViewMode::ViewTasks);
+                            }
+                            _ => {}
+                        },
                         ViewMode::AddTask => match key.code {
                             Enter => {
                                 Task::create(self, &mut items, input.value());
@@ -501,6 +594,8 @@ impl App {
         items: &Vec<ListItem>,
         status_items: &Vec<ListItem>,
         priority_items: &Vec<ListItem>,
+        cost_items: &Vec<ListItem>,
+        time_items: &Vec<ListItem>,
     ) {
         let layout = Layout::vertical(if self.config.ui.show_help {
             [
@@ -549,6 +644,14 @@ impl App {
 
         if self.view_mode == ViewMode::ChangePriorityTask {
             View::show_select_task_priority_modal(self, priority_items, f, area)
+        }
+
+        if self.view_mode == ViewMode::ChangeCostTask {
+            View::show_select_task_cost_modal(self, cost_items, f, area)
+        }
+
+        if self.view_mode == ViewMode::ChangeTimeTask {
+            View::show_select_task_time_modal(self, time_items, f, area)
         }
 
         if self.view_mode == ViewMode::GitCommit {
@@ -610,6 +713,8 @@ impl App {
             ViewMode::RenameTask => return &mut self.selected_task_index,
             ViewMode::ChangeStatusTask => return &mut self.selected_status_task_index,
             ViewMode::ChangePriorityTask => return &mut self.selected_priority_task_index,
+            ViewMode::ChangeCostTask => return &mut self.selected_cost_task_index,
+            ViewMode::ChangeTimeTask => return &mut self.selected_time_task_index,
             ViewMode::AddTask => return &mut self.selected_task_index,
             ViewMode::DeleteTask => return &mut self.selected_task_index,
         };
