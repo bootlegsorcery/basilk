@@ -453,17 +453,18 @@ impl View {
                 f.render_widget(card_block, card_area);
 
                 // Build task text with title at top and indicators at bottom
-                let selection_prefix = if is_currently_selected {
-                    "> ".to_string()
-                } else {
-                    "  ".to_string()
-                };
+                // Only add prefix for selected card, not for all cards
+                let mut title_spans: Vec<Span> = vec![];
+                if is_currently_selected {
+                    title_spans.push(Span::styled(
+                        "> ".to_string(),
+                        Style::default().fg(status_color),
+                    ));
+                }
+                title_spans.push(Span::styled(task.title.clone(), card_style));
 
-                // Top line: selection indicator + title
-                let title_line = Line::from(vec![
-                    Span::styled(selection_prefix.clone(), Style::default().fg(status_color)),
-                    Span::styled(task.title.clone(), card_style),
-                ]);
+                // Top line: selection indicator (only if selected) + title
+                let title_line = Line::from(title_spans);
 
                 // Build lines for indicators - combine on one line when possible
                 let mut lines = vec![title_line];
@@ -648,10 +649,8 @@ impl View {
                 f.render_widget(card_block, card_area);
 
                 // Render task text with title at top and indicators at bottom
-                let title_line = Line::from(vec![
-                    Span::styled("  ", Style::default()),
-                    Span::styled(task.title.clone(), card_style),
-                ]);
+                // No prefix needed since this is non-interactive (no selection)
+                let title_line = Line::from(vec![Span::styled(task.title.clone(), card_style)]);
 
                 // Build lines for indicators - combine on one line when possible
                 let mut lines = vec![title_line];
