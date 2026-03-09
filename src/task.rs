@@ -74,7 +74,7 @@ impl Task {
             .map(|t| t.title.clone())
             .unwrap_or_default();
 
-        // Sort tasks by status order in config, then by priority (high to low)
+        // Sort tasks by priority (high to low), then by status order in config
         // Priority 1 = !!! (highest), 2 = !! (medium), 3 = ! (lowest), 0 = none
         tasks.sort_by(|a, b| {
             let status_a_idx = config
@@ -88,16 +88,17 @@ impl Task {
                 .position(|s| s.label == b.status)
                 .unwrap_or(usize::MAX);
 
-            match status_a_idx.cmp(&status_b_idx) {
-                // Sort priority: 1 (!!!), 2 (!!), 3 (!), then 0 (none) at the end
-                std::cmp::Ordering::Equal => {
-                    match (a.priority, b.priority) {
-                        (0, 0) => std::cmp::Ordering::Equal,
-                        (0, _) => std::cmp::Ordering::Greater, // 0 goes last
-                        (_, 0) => std::cmp::Ordering::Less,    // 0 goes last
-                        _ => a.priority.cmp(&b.priority),      // 1, 2, 3 in order
-                    }
-                }
+            // First sort by priority (high to low)
+            let priority_cmp = match (a.priority, b.priority) {
+                (0, 0) => std::cmp::Ordering::Equal,
+                (0, _) => std::cmp::Ordering::Greater, // 0 goes last
+                (_, 0) => std::cmp::Ordering::Less,    // 0 goes last
+                _ => a.priority.cmp(&b.priority),      // 1, 2, 3 in order
+            };
+
+            // Then sort by status if priorities are equal
+            match priority_cmp {
+                std::cmp::Ordering::Equal => status_a_idx.cmp(&status_b_idx),
                 other => other,
             }
         });
