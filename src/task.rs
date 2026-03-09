@@ -142,7 +142,7 @@ impl Task {
             ));
 
             // Add cost indicator (green) at the end if present
-            if task.cost != 0 {
+            if config.ui.show_cost_time && task.cost != 0 {
                 repr.push(Span::styled(
                     format!(" [{}]", Util::get_cost_indicator(task.cost)),
                     Style::new().fg(Color::Green).add_modifier(modifier),
@@ -150,7 +150,7 @@ impl Task {
             }
 
             // Add time indicator (blue) at the end if present
-            if task.time != 0 {
+            if config.ui.show_cost_time && task.time != 0 {
                 repr.push(Span::styled(
                     format!(" [{}]", Util::get_time_indicator(task.time)),
                     Style::new().fg(Color::Blue).add_modifier(modifier),

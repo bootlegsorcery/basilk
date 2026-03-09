@@ -435,6 +435,12 @@ impl App {
                                     TaskViewMode::Kanban => TaskViewMode::List,
                                 };
                             }
+                            Char('i') => {
+                                // Toggle cost/time indicators visibility
+                                self.config.ui.show_cost_time = !self.config.ui.show_cost_time;
+                                // Reload items to update the display immediately without changing order
+                                Task::load_items(self, &mut items);
+                            }
                             Down | Tab | Char('j') => {
                                 self.next(&items);
                             }

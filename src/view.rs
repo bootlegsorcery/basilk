@@ -420,7 +420,9 @@ impl View {
                 // Calculate card height based on content
                 // Base: 1 line for title, +1 line for indicators if any present
                 // + 2 for borders (top and bottom)
-                let has_indicators = task.priority != 0 || task.cost != 0 || task.time != 0;
+                let has_indicators = task.priority != 0
+                    || (config.ui.show_cost_time && task.cost != 0)
+                    || (config.ui.show_cost_time && task.time != 0);
                 let content_lines = if has_indicators { 2u16 } else { 1u16 };
                 let card_height = content_lines + 2; // +2 for borders
 
@@ -475,7 +477,7 @@ impl View {
                             .add_modifier(modifier),
                     ));
                 }
-                if task.cost != 0 {
+                if config.ui.show_cost_time && task.cost != 0 {
                     if !indicator_spans.is_empty() {
                         indicator_spans.push(Span::raw(" "));
                     }
@@ -486,7 +488,7 @@ impl View {
                             .add_modifier(modifier),
                     ));
                 }
-                if task.time != 0 {
+                if config.ui.show_cost_time && task.time != 0 {
                     if !indicator_spans.is_empty() {
                         indicator_spans.push(Span::raw(" "));
                     }
@@ -620,7 +622,9 @@ impl View {
                 // Calculate card height based on content
                 // Base: 1 line for title, +1 line for indicators if any present
                 // + 2 for borders (top and bottom)
-                let has_indicators = task.priority != 0 || task.cost != 0 || task.time != 0;
+                let has_indicators = task.priority != 0
+                    || (config.ui.show_cost_time && task.cost != 0)
+                    || (config.ui.show_cost_time && task.time != 0);
                 let content_lines = if has_indicators { 2u16 } else { 1u16 };
                 let card_height = content_lines + 2; // +2 for borders
 
@@ -661,7 +665,7 @@ impl View {
                             .add_modifier(modifier),
                     ));
                 }
-                if task.cost != 0 {
+                if config.ui.show_cost_time && task.cost != 0 {
                     if !indicator_spans.is_empty() {
                         indicator_spans.push(Span::raw(" "));
                     }
@@ -672,7 +676,7 @@ impl View {
                             .add_modifier(modifier),
                     ));
                 }
-                if task.time != 0 {
+                if config.ui.show_cost_time && task.time != 0 {
                     if !indicator_spans.is_empty() {
                         indicator_spans.push(Span::raw(" "));
                     }
@@ -834,6 +838,9 @@ impl View {
                 lines.push(Line::from("  <d>                   - Delete task"));
                 lines.push(Line::from("  <e>                   - Edit notes"));
                 lines.push(Line::from("  <v>                   - Toggle view"));
+                lines.push(Line::from(
+                    "  <i>                   - Toggle cost/time indicators",
+                ));
             }
             ViewMode::GitCommit => {
                 lines.push(Line::from(""));

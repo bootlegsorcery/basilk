@@ -19,6 +19,7 @@ pub struct ConfigToml {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Ui {
     pub show_help: bool,
+    pub show_cost_time: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -60,7 +61,10 @@ static CONFIG_FILE_NAME: &str = "config";
 impl Config {
     pub fn get_default() -> ConfigToml {
         ConfigToml {
-            ui: Ui { show_help: true },
+            ui: Ui {
+                show_help: true,
+                show_cost_time: true,
+            },
             statuses: vec![
                 StatusConfig {
                     label: "Todo".to_string(),
