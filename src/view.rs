@@ -284,25 +284,12 @@ impl View {
 
             // Render tasks as cards in this column
             let mut current_y = inner_area.y;
-            let card_height = 3u16; // Title + spacing
 
             for task in status_tasks.iter() {
                 // Check if this is the selected task
                 let is_currently_selected = selected_task_idx == global_task_idx;
 
-                if current_y + card_height > inner_area.bottom() {
-                    global_task_idx += 1;
-                    continue; // Skip rendering if out of bounds, but still increment
-                }
-
-                let card_area = Rect {
-                    x: inner_area.x,
-                    y: current_y,
-                    width: inner_area.width,
-                    height: card_height,
-                };
-
-                // Build task content
+                // Build task content first to determine card height
                 let modifier = if is_terminal {
                     Modifier::CROSSED_OUT
                 } else {
@@ -316,6 +303,27 @@ impl View {
                         .add_modifier(Modifier::REVERSED)
                 } else {
                     Style::default().add_modifier(modifier)
+                };
+
+                // Calculate card height based on content
+                // Base: 1 line for title, +1 line for priority if present
+                // + 2 for borders (top and bottom)
+                let mut content_lines = 2u16; // title + priority line
+                if task.priority == 0 {
+                    content_lines = 1; // title only
+                }
+                let card_height = content_lines + 2; // +2 for borders
+
+                if current_y + card_height > inner_area.bottom() {
+                    global_task_idx += 1;
+                    continue; // Skip rendering if out of bounds, but still increment
+                }
+
+                let card_area = Rect {
+                    x: inner_area.x,
+                    y: current_y,
+                    width: inner_area.width,
+                    height: card_height,
                 };
 
                 // Render card with border
@@ -332,32 +340,35 @@ impl View {
                 let card_inner = card_block.inner(card_area);
                 f.render_widget(card_block, card_area);
 
-                // Build task text spans - priority in red
-                let mut task_spans = vec![Span::styled(
-                    if is_currently_selected {
-                        "> ".to_string()
-                    } else {
-                        "  ".to_string()
-                    },
-                    Style::default().fg(status_color),
-                )];
+                // Build task text with title at top and priority at bottom
+                let selection_prefix = if is_currently_selected {
+                    "> ".to_string()
+                } else {
+                    "  ".to_string()
+                };
 
-                // Add priority indicator in red if present
+                // Top line: selection indicator + title
+                let title_line = Line::from(vec![
+                    Span::styled(selection_prefix.clone(), Style::default().fg(status_color)),
+                    Span::styled(task.title.clone(), card_style),
+                ]);
+
+                // Bottom line: priority indicator (no selection prefix)
+                let mut lines = vec![title_line];
                 if task.priority != 0 {
-                    task_spans.push(Span::styled(
-                        format!("[{}] ", Util::get_priority_indicator(task.priority)),
+                    let priority_line = Line::from(vec![Span::styled(
+                        format!("  [{}]", Util::get_priority_indicator(task.priority)),
                         Style::default()
                             .fg(ratatui::style::Color::Red)
                             .add_modifier(modifier),
-                    ));
+                    )]);
+                    lines.push(priority_line);
                 }
 
-                task_spans.push(Span::styled(task.title.clone(), card_style));
-
-                let task_text = Paragraph::new(Line::from(task_spans));
+                let task_text = Paragraph::new(lines);
                 f.render_widget(task_text, card_inner);
 
-                current_y += card_height + 1; // +1 for spacing between cards
+                current_y += card_height; // no extra spacing between cards
                 global_task_idx += 1;
             }
 
@@ -459,9 +470,25 @@ impl View {
 
             // Render tasks as cards in this column - NO SELECTION HIGHLIGHTING
             let mut current_y = inner_area.y;
-            let card_height = 3u16; // Title + spacing
 
             for task in status_tasks.iter() {
+                // Calculate card height based on content
+                let modifier = if is_terminal {
+                    Modifier::CROSSED_OUT
+                } else {
+                    Modifier::empty()
+                };
+                let card_style = Style::default().add_modifier(modifier);
+
+                // Calculate card height based on content
+                // Base: 1 line for title, +1 line for priority if present
+                // + 2 for borders (top and bottom)
+                let mut content_lines = 2u16; // title + priority line
+                if task.priority == 0 {
+                    content_lines = 1; // title only
+                }
+                let card_height = content_lines + 2; // +2 for borders
+
                 if current_y + card_height > inner_area.bottom() {
                     continue; // Skip rendering if out of bounds
                 }
@@ -473,24 +500,6 @@ impl View {
                     height: card_height,
                 };
 
-                // Build task content
-                let mut content = task.title.clone();
-                if task.priority != 0 {
-                    content = format!(
-                        "[{}] {}",
-                        Util::get_priority_indicator(task.priority),
-                        content
-                    );
-                }
-
-                let modifier = if is_terminal {
-                    Modifier::CROSSED_OUT
-                } else {
-                    Modifier::empty()
-                };
-
-                let card_style = Style::default().add_modifier(modifier);
-
                 // Render card with border (no selection highlighting)
                 let card_block = Block::default()
                     .borders(ratatui::widgets::Borders::ALL)
@@ -499,14 +508,27 @@ impl View {
                 let card_inner = card_block.inner(card_area);
                 f.render_widget(card_block, card_area);
 
-                // Render task text (no selection indicator)
-                let task_text = Paragraph::new(Line::from(vec![
+                // Render task text with title at top and priority at bottom
+                let title_line = Line::from(vec![
                     Span::styled("  ", Style::default()),
-                    Span::styled(content, card_style),
-                ]));
+                    Span::styled(task.title.clone(), card_style),
+                ]);
+
+                let mut lines = vec![title_line];
+                if task.priority != 0 {
+                    let priority_line = Line::from(vec![Span::styled(
+                        format!("  [{}]", Util::get_priority_indicator(task.priority)),
+                        Style::default()
+                            .fg(ratatui::style::Color::Red)
+                            .add_modifier(modifier),
+                    )]);
+                    lines.push(priority_line);
+                }
+
+                let task_text = Paragraph::new(lines);
                 f.render_widget(task_text, card_inner);
 
-                current_y += card_height + 1; // +1 for spacing between cards
+                current_y += card_height; // no extra spacing between cards
             }
 
             // Fill remaining space
