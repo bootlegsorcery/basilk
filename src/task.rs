@@ -131,6 +131,7 @@ impl Task {
 
     pub fn create(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
         use crate::config::Config;
+        let value = value.trim();
         if value.is_empty() {
             return;
         }
@@ -159,8 +160,8 @@ impl Task {
         let project_title = app.projects[project_idx].title.clone();
 
         // Calculate filenames
-        let old_filename = format!("{}.md", old_title.replace(' ', "_"));
-        let new_filename = format!("{}.md", value.replace(' ', "_"));
+        let old_filename = format!("{}.md", Util::encode_filename(&old_title));
+        let new_filename = format!("{}.md", Util::encode_filename(value));
 
         // Rename the file on disk
         let data_dir = Storage::get_data_dir();
@@ -201,9 +202,7 @@ impl Task {
             .unwrap_or_else(|| {
                 format!(
                     "{}.md",
-                    app.projects[project_idx].tasks[task_idx]
-                        .title
-                        .replace(' ', "_")
+                    Util::encode_filename(&app.projects[project_idx].tasks[task_idx].title)
                 )
             });
         Storage::delete_task(&project_name, &task_filename);

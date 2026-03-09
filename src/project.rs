@@ -71,6 +71,7 @@ impl Project {
     }
 
     pub fn create(app: &mut App, items: &mut Vec<ListItem>, value: &str) {
+        let value = value.trim();
         if value.is_empty() {
             return;
         }

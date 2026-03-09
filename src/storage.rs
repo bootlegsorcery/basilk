@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::config::Config;
+use crate::util::Util;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +52,7 @@ impl Storage {
 
             if path.is_dir() {
                 let folder_name = path.file_name().unwrap().to_string_lossy().to_string();
+                let decoded_name = Util::decode_filename(&folder_name);
 
                 let mut tasks = Vec::new();
 
@@ -67,7 +69,7 @@ impl Storage {
                 }
 
                 projects.push(Project {
-                    title: folder_name,
+                    title: decoded_name,
                     tasks,
                 });
             }
@@ -79,6 +81,7 @@ impl Storage {
     fn read_task(path: &Path, default_status: &str) -> Option<crate::task::Task> {
         let content = fs::read_to_string(path).ok()?;
         let filename = path.file_stem()?.to_string_lossy().to_string();
+        let title = Util::decode_filename(&filename);
 
         let mut status = default_status.to_string();
         let mut priority = 0u8;
@@ -94,7 +97,7 @@ impl Storage {
         }
 
         Some(crate::task::Task {
-            title: filename,
+            title,
             status,
             priority,
             markdown: Some(path.file_name().unwrap().to_string_lossy().to_string()),
@@ -106,7 +109,8 @@ impl Storage {
         let task = &project.tasks[task_idx];
 
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(&project.title);
+        let encoded_project_title = Util::encode_filename(&project.title);
+        let project_dir = data_dir.join(&encoded_project_title);
 
         if !project_dir.exists() {
             fs::create_dir_all(&project_dir).ok();
@@ -116,7 +120,7 @@ impl Storage {
             .markdown
             .as_ref()
             .cloned()
-            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
+            .unwrap_or_else(|| format!("{}.md", Util::encode_filename(&task.title)));
 
         let task_path = project_dir.join(&task_filename);
 
@@ -140,32 +144,35 @@ impl Storage {
 
     pub fn create_project(name: &str) {
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(name);
+        let encoded_name = Util::encode_filename(name);
+        let project_dir = data_dir.join(encoded_name);
         fs::create_dir_all(project_dir).ok();
     }
 
     pub fn rename_project(old_name: &str, new_name: &str) {
         let data_dir = Storage::get_data_dir();
-        let old_path = data_dir.join(old_name);
-        let new_path = data_dir.join(new_name);
+        let old_path = data_dir.join(Util::encode_filename(old_name));
+        let new_path = data_dir.join(Util::encode_filename(new_name));
         fs::rename(old_path, new_path).ok();
     }
 
     pub fn delete_project(name: &str) {
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(name);
+        let encoded_name = Util::encode_filename(name);
+        let project_dir = data_dir.join(encoded_name);
         fs::remove_dir_all(project_dir).ok();
     }
 
     pub fn create_task(project_name: &str, task_title: &str, origin_status: &str) -> PathBuf {
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(project_name);
+        let encoded_project_name = Util::encode_filename(project_name);
+        let project_dir = data_dir.join(&encoded_project_name);
 
         if !project_dir.exists() {
             fs::create_dir_all(&project_dir).ok();
         }
 
-        let filename = format!("{}.md", task_title.replace(' ', "_"));
+        let filename = format!("{}.md", Util::encode_filename(task_title));
         let task_path = project_dir.join(&filename);
 
         let content = format!(
@@ -180,7 +187,8 @@ impl Storage {
 
     pub fn delete_task(project_name: &str, task_filename: &str) {
         let data_dir = Storage::get_data_dir();
-        let task_path = data_dir.join(project_name).join(task_filename);
+        let encoded_project_name = Util::encode_filename(project_name);
+        let task_path = data_dir.join(&encoded_project_name).join(task_filename);
         fs::remove_file(task_path).ok();
     }
 
@@ -191,12 +199,13 @@ impl Storage {
         let task = &project.tasks[task_idx];
 
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(&project.title);
+        let encoded_project_title = Util::encode_filename(&project.title);
+        let project_dir = data_dir.join(&encoded_project_title);
         let task_filename = task
             .markdown
             .as_ref()
             .cloned()
-            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
+            .unwrap_or_else(|| format!("{}.md", Util::encode_filename(&task.title)));
         let task_path = project_dir.join(&task_filename);
 
         fs::read_to_string(&task_path)
@@ -216,7 +225,8 @@ impl Storage {
         let task = &project.tasks[task_idx];
 
         let data_dir = Storage::get_data_dir();
-        let project_dir = data_dir.join(&project.title);
+        let encoded_project_title = Util::encode_filename(&project.title);
+        let project_dir = data_dir.join(&encoded_project_title);
 
         if !project_dir.exists() {
             fs::create_dir_all(&project_dir).ok();
@@ -226,7 +236,7 @@ impl Storage {
             .markdown
             .as_ref()
             .cloned()
-            .unwrap_or_else(|| format!("{}.md", task.title.replace(' ', "_")));
+            .unwrap_or_else(|| format!("{}.md", Util::encode_filename(&task.title)));
 
         let task_path = project_dir.join(&task_filename);
 
